@@ -12,10 +12,10 @@ export default function Home() {
       <div className="relative z-10 text-center max-w-4xl mx-auto">
         {/* Logo and Brand */}
         <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             {/* Logo icon - crossed wrenches and gear */}
             <div className="relative">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="text-white">
+              <svg width="60" height="60" viewBox="0 0 40 40" fill="none" className="text-white">
                 {/* Gear */}
                 <circle cx="20" cy="20" r="8" stroke="currentColor" strokeWidth="2" fill="none"/>
                 <circle cx="20" cy="20" r="3" fill="currentColor"/>
@@ -27,7 +27,7 @@ export default function Home() {
                 <path d="M34 30 L30 34" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-white">Dex</h1>
+            <h1 className="text-5xl md:text-6xl font-bold text-white">Dex</h1>
           </div>
         </div>
 
