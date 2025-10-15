@@ -1,0 +1,48 @@
+ICE MACHINE TROUBLESHOOTING GUIDE
+
+COMMON PROBLEMS AND SOLUTIONS:
+
+1. ICE MACHINE NOT TURNING ON
+   - Check power supply and ensure unit is plugged in
+   - Verify circuit breaker is not tripped
+   - Check for loose electrical connections
+   - Test power outlet with another device
+   - If still not working, check internal fuse or control board
+
+2. ICE MACHINE RUNS BUT MAKES NO ICE
+   - Check water supply line - ensure adequate water pressure (20-60 PSI)
+   - Verify water filter is not clogged or needs replacement
+   - Check for kinks or blockages in water line
+   - Ensure water inlet valve is fully open
+   - Check if water temperature is too high (should be below 90°F)
+
+3. ICE MACHINE MAKES ICE BUT WON'T HARVEST
+   - Check harvest thermostat setting
+   - Verify hot gas valve is functioning properly
+   - Check for ice bridging between cubes
+   - Ensure proper refrigerant charge
+   - Clean condenser coils if dirty
+
+4. ICE TASTES OR SMELLS BAD
+   - Replace water filter (recommended every 6 months)
+   - Clean ice storage bin and interior surfaces
+   - Sanitize water system with approved cleaner
+   - Check for contamination in water supply
+
+5. ICE MACHINE LEAKING WATER
+   - Check water inlet connections for tightness
+   - Inspect water drain line for blockages
+   - Verify proper leveling of unit
+   - Check for cracked water lines or fittings
+
+MAINTENANCE SCHEDULE:
+- Weekly: Clean exterior surfaces
+- Monthly: Check water filter and replace if needed
+- Quarterly: Clean condenser coils and sanitize water system
+- Annually: Professional service inspection
+
+SAFETY NOTES:
+- Always disconnect power before performing maintenance
+- Use only manufacturer-approved replacement parts
+- Follow local codes for water and electrical connections
+- Keep area around unit clear for proper airflow
