@@ -13,7 +13,7 @@ export default function Home() {
               <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-white">Dex</h1>
+          <h1 className="text-xl font-semibold text-white">Dex - Ice Machine Troubleshooter</h1>
         </div>
         <div className="flex items-center space-x-2">
           <a 
