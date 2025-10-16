@@ -69,11 +69,48 @@ export default function ManualLibrary() {
       return;
     }
 
+    // Validate file type
+    const fileExtension = uploadForm.file.name.split('.').pop()?.toLowerCase();
+    if (!fileExtension || !['txt', 'md', 'pdf'].includes(fileExtension)) {
+      alert('Please select a TXT, MD, or PDF file.');
+      return;
+    }
+
     setUploading(true);
 
     try {
-      // Read file content
-      const content = await uploadForm.file.text();
+      // Read file content based on file type
+      let content: string;
+      const fileExtension = uploadForm.file.name.split('.').pop()?.toLowerCase();
+      
+      if (fileExtension === 'txt' || fileExtension === 'md') {
+        // For text files, read as text
+        content = await uploadForm.file.text();
+      } else if (fileExtension === 'pdf') {
+        // For PDF files, we'll send the file to the server for text extraction
+        // Use FormData for more efficient file transmission
+        const formData = new FormData();
+        formData.append('pdfFile', uploadForm.file);
+        
+        // Send to server for PDF text extraction
+        const pdfResponse = await fetch('/api/admin/extract-pdf', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        const pdfResult = await pdfResponse.json();
+        if (!pdfResponse.ok) {
+          throw new Error(pdfResult.error || 'Failed to extract text from PDF');
+        }
+        
+        content = pdfResult.text;
+        
+        if (!content || content.trim().length === 0) {
+          throw new Error('Could not extract text from PDF. The PDF might be image-based or corrupted.');
+        }
+      } else {
+        throw new Error(`Unsupported file type: ${fileExtension}`);
+      }
       
       // Prepare manual data
       const manualData = {
@@ -286,15 +323,28 @@ export default function ManualLibrary() {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 File *
               </label>
-              <input
-                type="file"
-                accept=".txt,.pdf,.md,.doc,.docx"
-                onChange={(e) => setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null })}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-              <p className="text-sm text-gray-400 mt-1">
-                Supported formats: TXT, PDF, MD, DOC, DOCX (max 5MB)
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".txt,.md,.pdf"
+                  onChange={(e) => setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null })}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  required
+                />
+                <div className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-500 border-2 border-dashed border-gray-500 hover:border-gray-400 rounded-lg text-center transition-colors cursor-pointer">
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14,2 14,8 20,8"/>
+                    </svg>
+                    <span className="text-gray-200 font-medium">
+                      {uploadForm.file ? uploadForm.file.name : 'Choose File to Upload'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-gray-400 mt-2">
+                Supported formats: TXT, MD, PDF (max 5MB)
               </p>
             </div>
 

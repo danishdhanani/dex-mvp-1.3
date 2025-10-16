@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import TroubleshootingChecklist from './TroubleshootingChecklist';
 
 interface Message {
   id: string;
   text: string;
   isUser: boolean;
   timestamp: Date;
+  isComplete?: boolean; // Track if the message is fully loaded
 }
 
 export default function ChatBot() {
@@ -23,29 +25,27 @@ export default function ChatBot() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  const sendMessage = async (messageText: string) => {
+    if (!messageText.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: input.trim(),
+      text: messageText.trim(),
       isUser: true,
       timestamp: new Date()
     };
 
+    // Add the user message to the chat
     setMessages(prev => [...prev, userMessage]);
-    const currentInput = input.trim();
-    setInput('');
-    setIsLoading(true);
 
     // Add placeholder bot message that we'll update
     const botMessageId = (Date.now() + 1).toString();
     const botMessage: Message = {
       id: botMessageId,
-      text: '',
+      text: 'Generating unit-specific recommendations...',
       isUser: false,
-      timestamp: new Date()
+      timestamp: new Date(),
+      isComplete: false
     };
 
     setMessages(prev => [...prev, botMessage]);
@@ -56,7 +56,7 @@ export default function ChatBot() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: currentInput }),
+        body: JSON.stringify({ message: messageText }),
       });
 
       if (!response.ok) {
@@ -77,19 +77,12 @@ export default function ChatBot() {
         
         const chunk = new TextDecoder().decode(value);
         fullResponse += chunk;
-        
-        // Update the bot message with the current response
-        setMessages(prev => prev.map(msg => 
-          msg.id === botMessageId 
-            ? { ...msg, text: fullResponse }
-            : msg
-        ));
       }
 
-      // Final update with complete response
+      // Update the bot message with the complete response
       setMessages(prev => prev.map(msg => 
         msg.id === botMessageId 
-          ? { ...msg, text: fullResponse || 'Sorry, I couldn\'t find relevant information.' }
+          ? { ...msg, text: fullResponse || 'Sorry, I couldn\'t find relevant information.', isComplete: true }
           : msg
       ));
 
@@ -97,12 +90,21 @@ export default function ChatBot() {
       console.error('Chat error:', error);
       setMessages(prev => prev.map(msg => 
         msg.id === botMessageId 
-          ? { ...msg, text: 'Sorry, I encountered an error. Please try again.' }
+          ? { ...msg, text: 'Sorry, I encountered an error. Please try again.', isComplete: true }
           : msg
       ));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const currentInput = input.trim();
+    setInput('');
+    await sendMessage(currentInput);
   };
 
   return (
@@ -121,9 +123,22 @@ export default function ChatBot() {
                     message.isUser ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-100'
                   } rounded-lg px-4 py-3`}
                 >
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                    {message.text}
-                  </p>
+                  {message.isUser ? (
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                      {message.text}
+                    </p>
+                  ) : message.isComplete ? (
+                    <TroubleshootingChecklist response={message.text} />
+                  ) : (
+                    <div className="flex items-center space-x-3">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                      <span className="text-sm text-gray-300">{message.text}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -159,7 +174,7 @@ export default function ChatBot() {
             {/* Quick Issue Selector */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto mb-8">
               <button
-                onClick={() => setInput("Ice machine not turning on - what do I do?")}
+                onClick={() => sendMessage("Ice machine not turning on - what do I do?")}
                 className="p-4 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-left transition-colors group"
               >
                 <div className="flex items-center space-x-3">
@@ -177,7 +192,7 @@ export default function ChatBot() {
               </button>
 
               <button
-                onClick={() => setInput("Ice machine runs but makes no ice - troubleshooting steps")}
+                onClick={() => sendMessage("Ice machine runs but makes no ice - troubleshooting steps")}
                 className="p-4 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-left transition-colors group"
               >
                 <div className="flex items-center space-x-3">
@@ -194,7 +209,7 @@ export default function ChatBot() {
               </button>
 
               <button
-                onClick={() => setInput("Ice machine makes ice but won't harvest - what's wrong?")}
+                onClick={() => sendMessage("Ice machine makes ice but won't harvest - what's wrong?")}
                 className="p-4 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-left transition-colors group"
               >
                 <div className="flex items-center space-x-3">
@@ -211,7 +226,7 @@ export default function ChatBot() {
               </button>
 
               <button
-                onClick={() => setInput("Ice tastes or smells bad - how to fix?")}
+                onClick={() => sendMessage("Ice tastes or smells bad - how to fix?")}
                 className="p-4 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-left transition-colors group"
               >
                 <div className="flex items-center space-x-3">
@@ -230,7 +245,7 @@ export default function ChatBot() {
               </button>
 
               <button
-                onClick={() => setInput("Ice machine leaking water - troubleshooting")}
+                onClick={() => sendMessage("Ice machine leaking water - troubleshooting")}
                 className="p-4 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-left transition-colors group"
               >
                 <div className="flex items-center space-x-3">
@@ -247,7 +262,7 @@ export default function ChatBot() {
               </button>
 
               <button
-                onClick={() => setInput("Ice machine maintenance schedule and cleaning")}
+                onClick={() => sendMessage("Ice machine maintenance schedule and cleaning")}
                 className="p-4 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-left transition-colors group"
               >
                 <div className="flex items-center space-x-3">
