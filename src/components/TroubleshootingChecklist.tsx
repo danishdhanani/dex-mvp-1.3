@@ -17,6 +17,7 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
 
   // Parse the response to extract steps
   const parseResponse = (text: string): ChecklistItem[] => {
+    // Parse response text into checklist items
     const items: ChecklistItem[] = [];
     
     // First, try to detect if this looks like a multi-step response
