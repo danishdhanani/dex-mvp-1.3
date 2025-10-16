@@ -113,54 +113,83 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
 
     // Try to parse "Step X:" format
     if (items.length === 0) {
-      const stepFormatRegex = /Step\s*(\d+):\s*([^\n]+?)(?=\n\s*Step|\n\s*\d+\.|\n\s*[-•*]|\n\n|$)/gs;
-      let stepMatch;
+      const lines = text.split('\n');
+      let currentStep = null;
       let stepFormatId = 1;
 
-      while ((stepMatch = stepFormatRegex.exec(text)) !== null) {
-        const stepNumber = stepMatch[1];
-        const title = stepMatch[2].trim();
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
         
-        const afterTitle = text.substring(stepMatch.index + stepMatch[0].length);
-        const nextStepMatch = afterTitle.match(/(\n\s*Step|\n\s*\d+\.|\n\s*[-•*]|\n\n)/);
-        const description = nextStepMatch 
-          ? afterTitle.substring(0, nextStepMatch.index).trim()
-          : afterTitle.trim();
-        
-        items.push({
-          id: `step-format-${stepFormatId}`,
-          title: `Step ${stepNumber}: ${title}`,
-          description: description,
-          completed: false
-        });
-        stepFormatId++;
+        // Check if this line starts with "Step X:"
+        const stepMatch = line.match(/^Step\s*(\d+):\s*(.+)$/);
+        if (stepMatch) {
+          // Save previous step if exists
+          if (currentStep) {
+            items.push(currentStep);
+          }
+          
+          // Start new step
+          currentStep = {
+            id: `step-format-${stepFormatId}`,
+            title: `Step ${stepMatch[1]}: ${stepMatch[2]}`,
+            description: '',
+            completed: false
+          };
+          stepFormatId++;
+        } else if (currentStep && line.length > 0) {
+          // Add content to current step's description
+          if (currentStep.description) {
+            currentStep.description += '\n' + line;
+          } else {
+            currentStep.description = line;
+          }
+        }
+      }
+      
+      // Add the last step
+      if (currentStep) {
+        items.push(currentStep);
       }
     }
 
     // Try to parse "Check/Verify X:" format
     if (items.length === 0) {
-      const checkRegex = /(Check|Verify)\s*(\d+):\s*([^\n]+?)(?=\n\s*(Check|Verify)|\n\s*\d+\.|\n\s*[-•*]|\n\n|$)/gs;
-      let checkMatch;
+      const lines = text.split('\n');
+      let currentCheck = null;
       let checkId = 1;
 
-      while ((checkMatch = checkRegex.exec(text)) !== null) {
-        const action = checkMatch[1];
-        const stepNumber = checkMatch[2];
-        const title = checkMatch[3].trim();
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
         
-        const afterTitle = text.substring(checkMatch.index + checkMatch[0].length);
-        const nextCheckMatch = afterTitle.match(/(\n\s*(Check|Verify)|\n\s*\d+\.|\n\s*[-•*]|\n\n)/);
-        const description = nextCheckMatch 
-          ? afterTitle.substring(0, nextCheckMatch.index).trim()
-          : afterTitle.trim();
-        
-        items.push({
-          id: `check-${checkId}`,
-          title: `${action} ${stepNumber}: ${title}`,
-          description: description,
-          completed: false
-        });
-        checkId++;
+        // Check if this line starts with "Check X:" or "Verify X:"
+        const checkMatch = line.match(/^(Check|Verify)\s*(\d+):\s*(.+)$/);
+        if (checkMatch) {
+          // Save previous check if exists
+          if (currentCheck) {
+            items.push(currentCheck);
+          }
+          
+          // Start new check
+          currentCheck = {
+            id: `check-${checkId}`,
+            title: `${checkMatch[1]} ${checkMatch[2]}: ${checkMatch[3]}`,
+            description: '',
+            completed: false
+          };
+          checkId++;
+        } else if (currentCheck && line.length > 0) {
+          // Add content to current check's description
+          if (currentCheck.description) {
+            currentCheck.description += '\n' + line;
+          } else {
+            currentCheck.description = line;
+          }
+        }
+      }
+      
+      // Add the last check
+      if (currentCheck) {
+        items.push(currentCheck);
       }
     }
 
