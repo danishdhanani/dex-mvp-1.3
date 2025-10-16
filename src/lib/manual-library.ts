@@ -11,6 +11,14 @@ export interface Manual {
   uploadedAt: Date;
   size: number;
   tags: string[];
+  // Unit information for targeted troubleshooting
+  unitInfo: {
+    brand: string;           // e.g., "Hoshizaki", "Manitowoc", "Scotsman"
+    model: string;           // e.g., "KM-1200 SRE", "iT1200 Indigo"
+    series?: string;         // e.g., "SRE Series", "Indigo Series"
+    yearRange?: string;      // e.g., "2020-2024", "2018+"
+    unitType: string;        // e.g., "Ice Machine", "Refrigerator", "Freezer"
+  };
 }
 
 export class ManualLibrary {
@@ -60,7 +68,14 @@ export class ManualLibrary {
     filename: string,
     content: string,
     category: string = 'General',
-    tags: string[] = []
+    tags: string[] = [],
+    unitInfo: {
+      brand: string;
+      model: string;
+      series?: string;
+      yearRange?: string;
+      unitType: string;
+    }
   ): Promise<string> {
     // Validate content size (5MB limit)
     if (content.length > 5 * 1024 * 1024) {
@@ -76,7 +91,8 @@ export class ManualLibrary {
       category,
       uploadedAt: new Date(),
       size: content.length,
-      tags
+      tags,
+      unitInfo
     };
 
     const manuals = this.loadManuals();
@@ -141,6 +157,93 @@ export class ManualLibrary {
     return content || 'No relevant content found in the manual library.';
   }
 
+  // Search manuals by unit information
+  async searchManualsByUnit(unitInfo: {
+    brand?: string;
+    model?: string;
+    series?: string;
+    unitType?: string;
+  }): Promise<Manual[]> {
+    const manuals = this.loadManuals();
+    
+    return manuals.filter(manual => {
+      // If no unit info provided, return all manuals
+      if (!unitInfo.brand && !unitInfo.model && !unitInfo.series && !unitInfo.unitType) {
+        return true;
+      }
+      
+      const manualUnit = manual.unitInfo;
+      
+      // Check brand match (case insensitive)
+      if (unitInfo.brand && !manualUnit.brand.toLowerCase().includes(unitInfo.brand.toLowerCase())) {
+        return false;
+      }
+      
+      // Check model match (case insensitive, partial match)
+      if (unitInfo.model && !manualUnit.model.toLowerCase().includes(unitInfo.model.toLowerCase())) {
+        return false;
+      }
+      
+      // Check series match (case insensitive, partial match)
+      if (unitInfo.series && manualUnit.series && !manualUnit.series.toLowerCase().includes(unitInfo.series.toLowerCase())) {
+        return false;
+      }
+      
+      // Check unit type match (case insensitive)
+      if (unitInfo.unitType && !manualUnit.unitType.toLowerCase().includes(unitInfo.unitType.toLowerCase())) {
+        return false;
+      }
+      
+      return true;
+    });
+  }
+
+  // Get unit-based content for AI context
+  async getUnitSpecificContent(
+    query: string, 
+    unitInfo: {
+      brand?: string;
+      model?: string;
+      series?: string;
+      unitType?: string;
+    },
+    maxLength: number = 1500
+  ): Promise<string> {
+    // First get unit-specific manuals
+    const unitManuals = await this.searchManualsByUnit(unitInfo);
+    
+    if (unitManuals.length === 0) {
+      return 'No manuals found for the specified unit. Please check the unit information or upload relevant manuals.';
+    }
+
+    // Then search within those manuals for relevant content
+    const searchTerms = query.toLowerCase().split(' ');
+    let content = '';
+    
+    for (const manual of unitManuals.slice(0, 2)) { // Limit to top 2 unit-specific manuals
+      const lines = manual.content.split('\n');
+      const relevantLines: string[] = [];
+      
+      // Find lines that contain search terms
+      for (const line of lines) {
+        if (searchTerms.some(term => line.toLowerCase().includes(term))) {
+          relevantLines.push(line.trim());
+          if (relevantLines.length >= 5) break; // Limit to 5 relevant lines per manual
+        }
+      }
+      
+      if (relevantLines.length > 0) {
+        content += `\n\n--- ${manual.title} (${manual.unitInfo.brand} ${manual.unitInfo.model}) ---\n${relevantLines.join('\n')}`;
+        if (content.length > maxLength) {
+          content = content.substring(0, maxLength) + '...';
+          break;
+        }
+      }
+    }
+
+    return content || `No relevant content found in the ${unitInfo.brand || 'specified unit'} manuals.`;
+  }
+
   async deleteManual(id: string): Promise<boolean> {
     const manuals = this.loadManuals();
     const initialLength = manuals.length;
@@ -152,6 +255,40 @@ export class ManualLibrary {
     
     this.saveManuals(filteredManuals);
     console.log(`Manual deleted: ${id}`);
+    return true;
+  }
+
+  async updateManualMetadata(
+    id: string,
+    title: string,
+    category: string,
+    tags: string[],
+    unitInfo: {
+      brand: string;
+      model: string;
+      series?: string;
+      yearRange?: string;
+      unitType: string;
+    }
+  ): Promise<boolean> {
+    const manuals = this.loadManuals();
+    const manualIndex = manuals.findIndex(manual => manual.id === id);
+    
+    if (manualIndex === -1) {
+      return false; // Manual not found
+    }
+    
+    // Update the manual's metadata
+    manuals[manualIndex] = {
+      ...manuals[manualIndex],
+      title,
+      category,
+      tags,
+      unitInfo
+    };
+    
+    this.saveManuals(manuals);
+    console.log(`Manual metadata updated: ${id}`);
     return true;
   }
 

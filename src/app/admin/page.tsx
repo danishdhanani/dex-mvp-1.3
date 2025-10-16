@@ -35,7 +35,7 @@ export default function AdminPage() {
       <div className="p-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-white mb-2">Manual Library Management</h2>
+            <h2 className="text-3xl font-bold text-white mb-2">Document Library Management</h2>
             <p className="text-gray-400">Upload, organize, and manage your HVAC/R manuals</p>
           </div>
           

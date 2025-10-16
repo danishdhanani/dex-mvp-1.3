@@ -10,6 +10,13 @@ interface Manual {
   uploadedAt: string;
   size: number;
   tags: string[];
+  unitInfo: {
+    brand: string;
+    model: string;
+    series?: string;
+    yearRange?: string;
+    unitType: string;
+  };
 }
 
 interface LibraryStats {
@@ -25,13 +32,37 @@ export default function ManualLibrary() {
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [uploading, setUploading] = useState(false);
+  
+  // Preview modal state
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Manual | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    category: '',
+    tags: '',
+    unitInfo: {
+      brand: '',
+      model: '',
+      series: '',
+      yearRange: '',
+      unitType: ''
+    }
+  });
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
     title: '',
-    category: 'General',
+    category: 'Service Manual',
     tags: '',
-    file: null as File | null
+    file: null as File | null,
+    unitInfo: {
+      brand: '',
+      model: '',
+      series: '',
+      yearRange: '',
+      unitType: 'Ice Machine'
+    }
   });
 
   useEffect(() => {
@@ -60,6 +91,12 @@ export default function ManualLibrary() {
     e.preventDefault();
     if (!uploadForm.file || !uploadForm.title.trim()) {
       alert('Please select a file and enter a title');
+      return;
+    }
+
+    // Validate unit information
+    if (!uploadForm.unitInfo.brand.trim() || !uploadForm.unitInfo.model.trim() || !uploadForm.unitInfo.unitType.trim()) {
+      alert('Please fill in all required unit information (Brand, Model, Unit Type)');
       return;
     }
 
@@ -132,7 +169,14 @@ export default function ManualLibrary() {
         filename: uploadForm.file.name,
         content: content,
         category: uploadForm.category.trim() || 'General',
-        tags: uploadForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+        tags: uploadForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+        unitInfo: {
+          brand: uploadForm.unitInfo.brand.trim(),
+          model: uploadForm.unitInfo.model.trim(),
+          series: uploadForm.unitInfo.series.trim() || undefined,
+          yearRange: uploadForm.unitInfo.yearRange.trim() || undefined,
+          unitType: uploadForm.unitInfo.unitType.trim()
+        }
       };
 
       // Upload to server
@@ -153,14 +197,21 @@ export default function ManualLibrary() {
       // Reset form and reload manuals
       setUploadForm({
         title: '',
-        category: 'General',
+        category: 'Service Manual',
         tags: '',
-        file: null
+        file: null,
+        unitInfo: {
+          brand: '',
+          model: '',
+          series: '',
+          yearRange: '',
+          unitType: 'Ice Machine'
+        }
       });
       setShowUploadForm(false);
       
       await loadManuals();
-      alert('Manual uploaded successfully!');
+      alert('Document uploaded successfully!');
 
     } catch (error) {
       console.error('Upload error:', error);
@@ -169,7 +220,7 @@ export default function ManualLibrary() {
         stack: error instanceof Error ? error.stack : undefined,
         name: error instanceof Error ? error.name : undefined
       });
-      alert('Failed to upload manual: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      alert('Failed to upload document: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setUploading(false);
     }
@@ -191,11 +242,85 @@ export default function ManualLibrary() {
       }
 
       await loadManuals();
-      alert('Manual deleted successfully!');
+      alert('Document deleted successfully!');
     } catch (error) {
       console.error('Delete error:', error);
-      alert('Failed to delete manual: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      alert('Failed to delete document: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
+  };
+
+  // Preview modal functions
+  const openPreviewModal = (document: Manual) => {
+    setSelectedDocument(document);
+    setEditForm({
+      title: document.title,
+      category: document.category,
+      tags: document.tags.join(', '),
+      unitInfo: {
+        brand: document.unitInfo.brand,
+        model: document.unitInfo.model,
+        series: document.unitInfo.series || '',
+        yearRange: document.unitInfo.yearRange || '',
+        unitType: document.unitInfo.unitType
+      }
+    });
+    setIsEditing(false);
+    setShowPreviewModal(true);
+  };
+
+  const closePreviewModal = () => {
+    setShowPreviewModal(false);
+    setSelectedDocument(null);
+    setIsEditing(false);
+  };
+
+  const handleEditSave = async () => {
+    if (!selectedDocument) return;
+
+    try {
+      const response = await fetch(`/api/admin/manuals?id=${selectedDocument.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          category: editForm.category.trim(),
+          tags: editForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+          unitInfo: {
+            brand: editForm.unitInfo.brand.trim(),
+            model: editForm.unitInfo.model.trim(),
+            series: editForm.unitInfo.series.trim() || undefined,
+            yearRange: editForm.unitInfo.yearRange.trim() || undefined,
+            unitType: editForm.unitInfo.unitType.trim()
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Update failed');
+      }
+
+      await loadManuals();
+      setIsEditing(false);
+      alert('Document updated successfully!');
+    } catch (error) {
+      console.error('Update error:', error);
+      alert('Failed to update document: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const downloadPDF = () => {
+    if (!selectedDocument) return;
+    // Use the new file serving API endpoint with download disposition
+    const downloadUrl = `/api/files/${selectedDocument.filename}?download=true`;
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = selectedDocument.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -278,12 +403,12 @@ export default function ManualLibrary() {
       {/* Upload Section */}
       <div className="bg-gray-800 rounded-lg p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-white">Upload New Manual</h3>
+          <h3 className="text-xl font-semibold text-white">Upload New Document</h3>
           <button
             onClick={() => setShowUploadForm(!showUploadForm)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
-            {showUploadForm ? 'Cancel' : 'Upload Manual'}
+            {showUploadForm ? 'Cancel' : 'Upload Document'}
           </button>
         </div>
 
@@ -292,13 +417,13 @@ export default function ManualLibrary() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Manual Title *
+                  Document Title *
                 </label>
                 <input
                   type="text"
                   value={uploadForm.title}
                   onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
-                  placeholder="Enter manual title"
+                  placeholder="Enter document title"
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
@@ -306,21 +431,19 @@ export default function ManualLibrary() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Category
+                  Document Type
                 </label>
                 <select
                   value={uploadForm.category}
                   onChange={(e) => setUploadForm({ ...uploadForm, category: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="General">General</option>
-                  <option value="HVAC Systems">HVAC Systems</option>
-                  <option value="Ice Machines">Ice Machines</option>
-                  <option value="Refrigeration">Refrigeration</option>
-                  <option value="Troubleshooting">Troubleshooting</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Installation">Installation</option>
-                  <option value="Electrical">Electrical</option>
+                  <option value="Service Manual">Service Manual</option>
+                  <option value="Parts Manual">Parts Manual</option>
+                  <option value="Wiring Diagram">Wiring Diagram</option>
+                  <option value="Installation Guide">Installation Guide</option>
+                  <option value="User Manual">User Manual</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
             </div>
@@ -336,6 +459,104 @@ export default function ManualLibrary() {
                 placeholder="hvac, troubleshooting, repair"
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            {/* Unit Information Section */}
+            <div className="border-t border-gray-600 pt-4">
+              <h4 className="text-lg font-medium text-white mb-4">Unit Information *</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Brand *
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadForm.unitInfo.brand}
+                    onChange={(e) => setUploadForm({ 
+                      ...uploadForm, 
+                      unitInfo: { ...uploadForm.unitInfo, brand: e.target.value }
+                    })}
+                    placeholder="e.g., Hoshizaki, Manitowoc, Scotsman"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Model *
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadForm.unitInfo.model}
+                    onChange={(e) => setUploadForm({ 
+                      ...uploadForm, 
+                      unitInfo: { ...uploadForm.unitInfo, model: e.target.value }
+                    })}
+                    placeholder="e.g., KM-1200 SRE, iT1200 Indigo"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Series
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadForm.unitInfo.series}
+                    onChange={(e) => setUploadForm({ 
+                      ...uploadForm, 
+                      unitInfo: { ...uploadForm.unitInfo, series: e.target.value }
+                    })}
+                    placeholder="e.g., SRE Series, Indigo Series"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Year Range
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadForm.unitInfo.yearRange}
+                    onChange={(e) => setUploadForm({ 
+                      ...uploadForm, 
+                      unitInfo: { ...uploadForm.unitInfo, yearRange: e.target.value }
+                    })}
+                    placeholder="e.g., 2020-2024, 2018+"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Unit Type *
+                  </label>
+                  <select
+                    value={uploadForm.unitInfo.unitType}
+                    onChange={(e) => setUploadForm({ 
+                      ...uploadForm, 
+                      unitInfo: { ...uploadForm.unitInfo, unitType: e.target.value }
+                    })}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="Ice Machine">Ice Machine</option>
+                    <option value="Refrigerator">Refrigerator</option>
+                    <option value="Freezer">Freezer</option>
+                    <option value="Walk-in Cooler">Walk-in Cooler</option>
+                    <option value="Walk-in Freezer">Walk-in Freezer</option>
+                    <option value="HVAC System">HVAC System</option>
+                    <option value="Heat Pump">Heat Pump</option>
+                    <option value="Air Handler">Air Handler</option>
+                    <option value="Condensing Unit">Condensing Unit</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -389,7 +610,7 @@ export default function ManualLibrary() {
 
       {/* Manuals List */}
       <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-xl font-semibold text-white mb-6">Manual Library</h3>
+        <h3 className="text-xl font-semibold text-white mb-6">Document Library</h3>
         
         {manuals.length === 0 ? (
           <div className="text-center py-12">
@@ -402,15 +623,16 @@ export default function ManualLibrary() {
                 <polyline points="10,9 9,9 8,9"/>
               </svg>
             </div>
-            <p className="text-gray-400 text-lg mb-2">No manuals uploaded yet</p>
-            <p className="text-gray-500">Upload your first HVAC/R manual to get started</p>
+            <p className="text-gray-400 text-lg mb-2">No documents uploaded yet</p>
+            <p className="text-gray-500">Upload your first HVAC/R document to get started</p>
           </div>
         ) : (
           <div className="space-y-4">
             {manuals.map((manual) => (
               <div
                 key={manual.id}
-                className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 transition-colors"
+                className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 transition-colors cursor-pointer"
+                onClick={() => openPreviewModal(manual)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -459,9 +681,12 @@ export default function ManualLibrary() {
                   </div>
                   
                   <button
-                    onClick={() => deleteManual(manual.id, manual.title)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteManual(manual.id, manual.title);
+                    }}
                     className="ml-4 p-2 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Delete manual"
+                    title="Delete document"
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polyline points="3,6 5,6 21,6"/>
@@ -476,6 +701,237 @@ export default function ManualLibrary() {
           </div>
         )}
       </div>
+
+      {/* Preview Modal */}
+      {showPreviewModal && selectedDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-white">Document Preview</h3>
+                <div className="flex space-x-3">
+                  {!isEditing ? (
+                    <>
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={downloadPDF}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                      >
+                        Download PDF
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleEditSave}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={closePreviewModal}
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              {/* Document Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-white border-b border-gray-600 pb-2">Basic Information</h4>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Document Title</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editForm.title}
+                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <p className="text-white bg-gray-700 px-3 py-2 rounded-lg">{selectedDocument.title}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Document Type</label>
+                    {isEditing ? (
+                      <select
+                        value={editForm.category}
+                        onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Service Manual">Service Manual</option>
+                        <option value="Parts Manual">Parts Manual</option>
+                        <option value="Wiring Diagram">Wiring Diagram</option>
+                        <option value="Installation Guide">Installation Guide</option>
+                        <option value="User Manual">User Manual</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    ) : (
+                      <p className="text-white bg-gray-700 px-3 py-2 rounded-lg">{selectedDocument.category}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Filename</label>
+                    <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-lg">{selectedDocument.filename}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">File Size</label>
+                    <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-lg">{formatFileSize(selectedDocument.size)}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Upload Date</label>
+                    <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-lg">{formatDate(selectedDocument.uploadedAt)}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Tags</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editForm.tags}
+                        onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                        placeholder="hvac, troubleshooting, repair"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <p className="text-white bg-gray-700 px-3 py-2 rounded-lg">
+                        {selectedDocument.tags.length > 0 ? selectedDocument.tags.join(', ') : 'No tags'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Unit Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-white border-b border-gray-600 pb-2">Unit Information</h4>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Brand</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editForm.unitInfo.brand}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          unitInfo: { ...editForm.unitInfo, brand: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <p className="text-white bg-gray-700 px-3 py-2 rounded-lg">{selectedDocument.unitInfo.brand}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Model</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editForm.unitInfo.model}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          unitInfo: { ...editForm.unitInfo, model: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <p className="text-white bg-gray-700 px-3 py-2 rounded-lg">{selectedDocument.unitInfo.model}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Series</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editForm.unitInfo.series}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          unitInfo: { ...editForm.unitInfo, series: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <p className="text-white bg-gray-700 px-3 py-2 rounded-lg">
+                        {selectedDocument.unitInfo.series || 'Not specified'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Year Range</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editForm.unitInfo.yearRange}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          unitInfo: { ...editForm.unitInfo, yearRange: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <p className="text-white bg-gray-700 px-3 py-2 rounded-lg">
+                        {selectedDocument.unitInfo.yearRange || 'Not specified'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Unit Type</label>
+                    {isEditing ? (
+                      <select
+                        value={editForm.unitInfo.unitType}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          unitInfo: { ...editForm.unitInfo, unitType: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="Ice Machine">Ice Machine</option>
+                        <option value="Refrigerator">Refrigerator</option>
+                        <option value="Freezer">Freezer</option>
+                        <option value="Walk-in Cooler">Walk-in Cooler</option>
+                        <option value="Walk-in Freezer">Walk-in Freezer</option>
+                        <option value="HVAC System">HVAC System</option>
+                        <option value="Heat Pump">Heat Pump</option>
+                        <option value="Air Handler">Air Handler</option>
+                        <option value="Condensing Unit">Condensing Unit</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    ) : (
+                      <p className="text-white bg-gray-700 px-3 py-2 rounded-lg">{selectedDocument.unitInfo.unitType}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

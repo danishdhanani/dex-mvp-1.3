@@ -23,11 +23,19 @@ export async function GET() {
 // POST /api/admin/manuals - Add a new manual
 export async function POST(request: NextRequest) {
   try {
-    const { title, filename, content, category, tags } = await request.json();
+    const { title, filename, content, category, tags, unitInfo } = await request.json();
 
     if (!title || !filename || !content) {
       return NextResponse.json(
         { error: 'Title, filename, and content are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate unit information
+    if (!unitInfo || !unitInfo.brand || !unitInfo.model || !unitInfo.unitType) {
+      return NextResponse.json(
+        { error: 'Unit information (brand, model, unitType) is required' },
         { status: 400 }
       );
     }
@@ -45,7 +53,8 @@ export async function POST(request: NextRequest) {
       filename,
       content,
       category || 'General',
-      tags || []
+      tags || [],
+      unitInfo
     );
 
     return NextResponse.json({
@@ -94,6 +103,65 @@ export async function DELETE(request: NextRequest) {
     console.error('Admin API error:', error);
     return NextResponse.json(
       { error: 'Failed to delete manual' },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/admin/manuals - Update a manual's metadata
+export async function PUT(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const manualId = searchParams.get('id');
+
+    if (!manualId) {
+      return NextResponse.json(
+        { error: 'Manual ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const { title, category, tags, unitInfo } = await request.json();
+
+    if (!title || !category || !unitInfo) {
+      return NextResponse.json(
+        { error: 'Title, category, and unit information are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate unit information
+    if (!unitInfo.brand || !unitInfo.model || !unitInfo.unitType) {
+      return NextResponse.json(
+        { error: 'Unit information (brand, model, unitType) is required' },
+        { status: 400 }
+      );
+    }
+
+    const success = await manualLibrary.updateManualMetadata(
+      manualId,
+      title,
+      category,
+      tags || [],
+      unitInfo
+    );
+    
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Manual not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Manual updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Admin API error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update manual' },
       { status: 500 }
     );
   }
