@@ -79,13 +79,23 @@ export default function ManualLibrary() {
     setUploading(true);
 
     try {
+      console.log('Starting file upload:', {
+        filename: uploadForm.file.name,
+        size: uploadForm.file.size,
+        type: uploadForm.file.type
+      });
+
       // Read file content based on file type
       let content: string;
       const fileExtension = uploadForm.file.name.split('.').pop()?.toLowerCase();
       
+      console.log('File extension:', fileExtension);
+      
       if (fileExtension === 'txt' || fileExtension === 'md') {
         // For text files, read as text
+        console.log('Processing text file...');
         content = await uploadForm.file.text();
+        console.log('Text content length:', content.length);
       } else if (fileExtension === 'pdf') {
         // For PDF files, we'll send the file to the server for text extraction
         // Use FormData for more efficient file transmission
@@ -93,12 +103,16 @@ export default function ManualLibrary() {
         formData.append('pdfFile', uploadForm.file);
         
         // Send to server for PDF text extraction
+        console.log('Sending PDF to server...');
         const pdfResponse = await fetch('/api/admin/extract-pdf', {
           method: 'POST',
           body: formData,
         });
         
+        console.log('PDF response status:', pdfResponse.status);
         const pdfResult = await pdfResponse.json();
+        console.log('PDF result:', pdfResult);
+        
         if (!pdfResponse.ok) {
           throw new Error(pdfResult.error || 'Failed to extract text from PDF');
         }
@@ -150,6 +164,11 @@ export default function ManualLibrary() {
 
     } catch (error) {
       console.error('Upload error:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
+      });
       alert('Failed to upload manual: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setUploading(false);
