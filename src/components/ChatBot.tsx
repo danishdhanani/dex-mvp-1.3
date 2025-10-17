@@ -16,6 +16,25 @@ export default function ChatBot() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Unit selection state
+  const [selectedUnit, setSelectedUnit] = useState<{
+    brand: string;
+    model: string;
+    series?: string;
+    yearRange?: string;
+    unitType: string;
+  } | null>(null);
+  const [showUnitSelector, setShowUnitSelector] = useState(false);
+  
+  // Input mode state (simplified for now)
+  const [inputMode, setInputMode] = useState<'manual'>('manual');
+  
+  // Manual availability state
+  const [manualAvailability, setManualAvailability] = useState<{
+    hasManual: boolean;
+    message: string;
+  } | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -24,6 +43,68 @@ export default function ChatBot() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const closeUnitSelector = () => {
+    setShowUnitSelector(false);
+    setInputMode('manual');
+    setManualAvailability(null);
+  };
+
+  const checkManualAvailability = async (unitInfo: any) => {
+    try {
+      // Check if we have manuals for this specific unit
+      const response = await fetch('/api/admin/manuals', {
+        method: 'GET',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const manuals = data.manuals || []; // Extract manuals array from response
+        
+        console.log('Checking manual availability for:', unitInfo);
+        console.log('Available manuals:', manuals.map((m: any) => ({ 
+          brand: m.unitInfo?.brand, 
+          model: m.unitInfo?.model, 
+          type: m.unitInfo?.unitType 
+        })));
+        
+        // Look for manuals that match the unit info
+        const matchingManuals = manuals.filter((manual: any) => {
+          const brandMatch = manual.unitInfo?.brand?.toLowerCase() === unitInfo.brand.toLowerCase();
+          const modelMatch = manual.unitInfo?.model?.toLowerCase() === unitInfo.model.toLowerCase();
+          const typeMatch = manual.unitInfo?.unitType?.toLowerCase() === unitInfo.unitType.toLowerCase();
+          
+          return brandMatch && modelMatch && typeMatch;
+        });
+        
+        console.log('Matching manuals found:', matchingManuals.length);
+        
+        if (matchingManuals.length > 0) {
+          setManualAvailability({
+            hasManual: true,
+            message: "Manual found, chat will now provide unit-specific information"
+          });
+        } else {
+          setManualAvailability({
+            hasManual: false,
+            message: "This manual is not yet in our library, we will get it added soon. In the meantime you will see general results for ice machines."
+          });
+        }
+      } else {
+        // Fallback if API fails
+        setManualAvailability({
+          hasManual: false,
+          message: "This manual is not yet in our library, we will get it added soon. In the meantime you will see general results for ice machines."
+        });
+      }
+    } catch (error) {
+      console.error('Error checking manual availability:', error);
+      setManualAvailability({
+        hasManual: false,
+        message: "This manual is not yet in our library, we will get it added soon. In the meantime you will see general results for ice machines."
+      });
+    }
+  };
 
   const sendMessage = async (messageText: string) => {
     if (!messageText.trim() || isLoading) return;
@@ -56,7 +137,10 @@ export default function ChatBot() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: messageText }),
+        body: JSON.stringify({ 
+          message: messageText,
+          unitInfo: selectedUnit // Include unit information
+        }),
       });
 
       if (!response.ok) {
@@ -109,6 +193,220 @@ export default function ChatBot() {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-900">
+      {/* Unit Selection Header */}
+      <div className="bg-gray-800 border-b border-gray-700 px-4 py-3">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span className="text-white font-medium">Unit Information</span>
+            </div>
+            {selectedUnit ? (
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center space-x-2 text-sm text-gray-300">
+                  <span className="bg-blue-600 px-2 py-1 rounded text-white text-xs">
+                    {selectedUnit.brand} {selectedUnit.model}
+                  </span>
+                  <span className="text-gray-400">•</span>
+                  <span>{selectedUnit.unitType}</span>
+                  {selectedUnit.series && (
+                    <>
+                      <span className="text-gray-400">•</span>
+                      <span>{selectedUnit.series}</span>
+                    </>
+                  )}
+                </div>
+                {manualAvailability && (
+                  <div className={`text-xs px-2 py-1 rounded ${
+                    manualAvailability.hasManual 
+                      ? 'bg-green-900/30 text-green-300 border border-green-700' 
+                      : 'bg-yellow-900/30 text-yellow-300 border border-yellow-700'
+                  }`}>
+                    {manualAvailability.message}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-gray-400 text-sm">Enter unit make/model info to get unit-specific recommendations</span>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              if (!showUnitSelector) {
+                // Opening modal - ensure unit type is initialized
+                if (!selectedUnit?.unitType) {
+                  setSelectedUnit(prev => ({ 
+                    brand: prev?.brand || '', 
+                    model: prev?.model || '', 
+                    series: prev?.series || '', 
+                    yearRange: prev?.yearRange || '', 
+                    unitType: 'Ice Machine' 
+                  }));
+                }
+                // Clear manual availability when opening to change unit
+                setManualAvailability(null);
+              }
+              setShowUnitSelector(!showUnitSelector);
+            }}
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+          >
+            {selectedUnit ? 'Change Unit' : 'Select Unit'}
+          </button>
+        </div>
+      </div>
+
+      {/* Unit Selection Modal */}
+      {showUnitSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Select Unit</h3>
+              <button
+                onClick={closeUnitSelector}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            
+            {/* Input Mode Toggle */}
+            <div className="mb-6">
+              <div className="flex bg-gray-700 rounded-lg p-1">
+                <button
+                  onClick={() => {
+                    setInputMode('manual');
+                    // Ensure unit type is set when switching modes
+                    if (!selectedUnit?.unitType) {
+                      setSelectedUnit(prev => ({ 
+                        brand: prev?.brand || '', 
+                        model: prev?.model || '', 
+                        series: prev?.series || '', 
+                        yearRange: prev?.yearRange || '', 
+                        unitType: 'Ice Machine' 
+                      }));
+                    }
+                  }}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    inputMode === 'manual'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-300 hover:text-white'
+                  }`}
+                >
+                  Manual Input
+                </button>
+                <button
+                  onClick={() => {
+                    alert('Nameplate Scan feature coming soon! For now, please use Manual Input.');
+                  }}
+                  className="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors text-gray-400 cursor-not-allowed"
+                  disabled
+                >
+                  Nameplate Scan - Coming Soon
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Brand *</label>
+                <input
+                  type="text"
+                  value={selectedUnit?.brand || ''}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, brand: e.target.value, model: '', series: '', yearRange: '', unitType: prev?.unitType || 'Ice Machine' }))}
+                  placeholder="e.g., Hoshizaki, Manitowoc, Scotsman"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Model *</label>
+                <input
+                  type="text"
+                  value={selectedUnit?.model || ''}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, model: e.target.value }))}
+                  placeholder="e.g., KM-1200 SRE, iT1200 Indigo"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Series</label>
+                <input
+                  type="text"
+                  value={selectedUnit?.series || ''}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, series: e.target.value }))}
+                  placeholder="e.g., SRE Series, Indigo Series"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Year Range</label>
+                <input
+                  type="text"
+                  value={selectedUnit?.yearRange || ''}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, yearRange: e.target.value }))}
+                  placeholder="e.g., 2020-2024, 2018+"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Unit Type *</label>
+                <select
+                  value={selectedUnit?.unitType || 'Ice Machine'}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, unitType: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Ice Machine">Ice Machine</option>
+                  <option value="Refrigerator">Refrigerator</option>
+                  <option value="Freezer">Freezer</option>
+                  <option value="Walk-in Cooler">Walk-in Cooler</option>
+                  <option value="Walk-in Freezer">Walk-in Freezer</option>
+                  <option value="HVAC System">HVAC System</option>
+                  <option value="Heat Pump">Heat Pump</option>
+                  <option value="Air Handler">Air Handler</option>
+                  <option value="Condensing Unit">Condensing Unit</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={closeUnitSelector}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  // Manual input validation
+                  if (selectedUnit?.brand && selectedUnit?.model && selectedUnit?.unitType) {
+                    // Check manual availability before saving
+                    await checkManualAvailability(selectedUnit);
+                    setShowUnitSelector(false);
+                  } else {
+                    alert('Please fill in Brand, Model, and Unit Type');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Save Unit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Messages Area */}
       {messages.length > 0 && (
         <div className="flex-1 overflow-y-auto">

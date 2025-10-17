@@ -10,6 +10,10 @@ export class DocumentService {
     return await manualLibrary.getRelevantContent(query, maxLength);
   }
 
+  async getUnitSpecificContent(query: string, unitInfo: any, maxLength: number = 1500): Promise<string> {
+    return await manualLibrary.getUnitSpecificContent(query, unitInfo, maxLength);
+  }
+
   async getAllDocuments() {
     const manuals = await manualLibrary.getAllManuals();
     return manuals.map(manual => ({

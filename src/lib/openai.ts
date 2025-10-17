@@ -50,12 +50,25 @@ This format helps users follow the troubleshooting process systematically.
 You have access to uploaded HVAC/R manuals and documentation. Use this information to provide accurate, helpful responses. If the user's question requires information not in the provided documents, let them know and suggest they upload additional manuals or contact a specialist.`;
   }
 
-  async generateResponse(userMessage: string, contextDocuments: string): Promise<string> {
+  async generateResponse(userMessage: string, contextDocuments: string, unitInfo?: any): Promise<string> {
     try {
+      // Create unit-specific system prompt if unit info is provided
+      let systemPrompt = this.systemPrompt;
+      if (unitInfo && unitInfo.brand && unitInfo.model && unitInfo.unitType) {
+        systemPrompt += `\n\nIMPORTANT: The technician is working on a specific unit:
+- Brand: ${unitInfo.brand}
+- Model: ${unitInfo.model}
+- Unit Type: ${unitInfo.unitType}
+${unitInfo.series ? `- Series: ${unitInfo.series}` : ''}
+${unitInfo.yearRange ? `- Year Range: ${unitInfo.yearRange}` : ''}
+
+Focus your response on this specific unit model. Reference the exact model number and brand when providing troubleshooting steps, specifications, or recommendations. If the provided documents don't contain information for this specific model, clearly state this and provide general guidance for the unit type.`;
+      }
+
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         {
           role: 'system',
-          content: this.systemPrompt
+          content: systemPrompt
         },
         {
           role: 'user',

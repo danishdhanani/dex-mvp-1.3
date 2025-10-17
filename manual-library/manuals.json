@@ -62,5 +62,51 @@
       "series": "Indigo",
       "unitType": "Ice Machine"
     }
+  },
+  {
+    "id": "1760724606039_a59os3c1o",
+    "title": "Hoshizaki Ice Machine Modular Crescent Cuber - Service Manual",
+    "filename": "HOS-KM320-515-600-650-901MH_sm.pdf",
+    "content": "[PDF File: HOS-KM320-515-600-650-901MH_sm.pdf]\n\nThis is a PDF file. PDF text extraction is currently being implemented. The file has been uploaded successfully and can be referenced by filename.\n\nTo get the full text content searchable by the AI, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nThis ensures the content is fully searchable by the AI assistant.",
+    "category": "Service Manual",
+    "uploadedAt": "2025-10-17T18:10:06.039Z",
+    "size": 505,
+    "tags": [],
+    "unitInfo": {
+      "brand": "Hoshizaki",
+      "model": "KM-650MAH",
+      "series": "Modular Crescent Cuber",
+      "unitType": "Ice Machine"
+    }
+  },
+  {
+    "id": "1760724734727_g41t8kvbg",
+    "title": "Hoshizaki Ice Machine Modular Crescent Cuber - Instruction Manual",
+    "filename": "HOS-KM340-515-600-650-901MH_iom.pdf",
+    "content": "[PDF File: HOS-KM340-515-600-650-901MH_iom.pdf]\n\nThis is a PDF file. PDF text extraction is currently being implemented. The file has been uploaded successfully and can be referenced by filename.\n\nTo get the full text content searchable by the AI, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nThis ensures the content is fully searchable by the AI assistant.",
+    "category": "Installation Guide",
+    "uploadedAt": "2025-10-17T18:12:14.727Z",
+    "size": 506,
+    "tags": [],
+    "unitInfo": {
+      "brand": "Hoshizaki",
+      "model": "KM-650MAH",
+      "unitType": "Ice Machine"
+    }
+  },
+  {
+    "id": "1760724822270_n2e549fg7",
+    "title": "Hoshizaki Ice Machine Modular Crescent Cuber - Parts Manual",
+    "filename": "KM-650MAH_pm.pdf",
+    "content": "[PDF File: KM-650MAH_pm.pdf]\n\nThis is a PDF file. PDF text extraction is currently being implemented. The file has been uploaded successfully and can be referenced by filename.\n\nTo get the full text content searchable by the AI, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nThis ensures the content is fully searchable by the AI assistant.",
+    "category": "Service Manual",
+    "uploadedAt": "2025-10-17T18:13:42.270Z",
+    "size": 487,
+    "tags": [],
+    "unitInfo": {
+      "brand": "Hoshizaki",
+      "model": "KM-650MAH",
+      "unitType": "Ice Machine"
+    }
   }
 ]
