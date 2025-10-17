@@ -277,7 +277,7 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
             {/* Content */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <h3 className={`text-white font-medium ${
+                <h3 className={`text-white font-medium text-xs sm:text-sm ${
                   completedItems.has(item.id) ? 'line-through text-gray-400' : ''
                 }`}>
                   {item.title}
