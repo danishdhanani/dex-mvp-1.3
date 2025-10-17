@@ -320,7 +320,7 @@ export default function ChatBot() {
                 <input
                   type="text"
                   value={selectedUnit?.brand || ''}
-                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, brand: e.target.value, model: '', series: '', yearRange: '', unitType: prev?.unitType || 'Ice Machine' }))}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, brand: e.target.value || '', model: '', series: '', yearRange: '', unitType: prev?.unitType || 'Ice Machine' }))}
                   placeholder="e.g., Hoshizaki, Manitowoc, Scotsman"
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -331,7 +331,7 @@ export default function ChatBot() {
                 <input
                   type="text"
                   value={selectedUnit?.model || ''}
-                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, model: e.target.value }))}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, model: e.target.value || '' }))}
                   placeholder="e.g., KM-1200 SRE, iT1200 Indigo"
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -342,7 +342,7 @@ export default function ChatBot() {
                 <input
                   type="text"
                   value={selectedUnit?.series || ''}
-                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, series: e.target.value }))}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, series: e.target.value || '' }))}
                   placeholder="e.g., SRE Series, Indigo Series"
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -353,7 +353,7 @@ export default function ChatBot() {
                 <input
                   type="text"
                   value={selectedUnit?.yearRange || ''}
-                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, yearRange: e.target.value }))}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, yearRange: e.target.value || '' }))}
                   placeholder="e.g., 2020-2024, 2018+"
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -363,7 +363,7 @@ export default function ChatBot() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">Unit Type *</label>
                 <select
                   value={selectedUnit?.unitType || 'Ice Machine'}
-                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, unitType: e.target.value }))}
+                  onChange={(e) => setSelectedUnit(prev => ({ ...prev, unitType: e.target.value || 'Ice Machine' }))}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Ice Machine">Ice Machine</option>
