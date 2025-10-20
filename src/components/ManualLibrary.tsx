@@ -188,6 +188,9 @@ export default function ManualLibrary() {
             status: 'failed', 
             message: 'PDF extraction failed - file may be image-based or corrupted' 
           });
+          // Don't continue with upload if PDF extraction failed
+          setUploading(false);
+          return;
         } else {
           setPdfExtractionStatus({ 
             status: 'success', 

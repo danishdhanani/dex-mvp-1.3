@@ -92,5 +92,20 @@
       "model": "KM-650MAH",
       "unitType": "Ice Machine"
     }
+  },
+  {
+    "id": "1760981198800_444ndhp4s",
+    "title": "Hoshizaki Ice Machine KM-1200 SRE - Service Manual",
+    "filename": "HOS-KM-1200SE_sm.pdf",
+    "content": "[PDF File: HOS-KM-1200SE_sm.pdf]\n\nPDF text extraction failed. The PDF might be image-based, password-protected, or corrupted.\n\nTo make this content searchable, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nError details: pdfParse is not a function",
+    "category": "Service Manual",
+    "uploadedAt": "2025-10-20T17:26:38.800Z",
+    "size": 394,
+    "tags": [],
+    "unitInfo": {
+      "brand": "Hoshizaki",
+      "model": "KM-1200",
+      "unitType": "Ice Machine"
+    }
   }
 ]

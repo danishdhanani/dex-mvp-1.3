@@ -19,11 +19,31 @@ export async function POST(request: NextRequest) {
     // Extract text from PDF using pdf-parse
     let text: string;
     try {
-      // Dynamic import to handle the module correctly
-      const pdfParseModule = await import('pdf-parse');
-      const pdfParse = pdfParseModule.default || pdfParseModule;
+      // Try to use pdf-parse as a function directly
+      const pdfParse = require('pdf-parse');
       
-      const pdfData = await pdfParse(buffer);
+      // Check if it's a function or if we need to access it differently
+      let parseFunction;
+      if (typeof pdfParse === 'function') {
+        parseFunction = pdfParse;
+      } else if (pdfParse.default && typeof pdfParse.default === 'function') {
+        parseFunction = pdfParse.default;
+      } else {
+        // Try to find a function in the module
+        const keys = Object.keys(pdfParse);
+        for (const key of keys) {
+          if (typeof pdfParse[key] === 'function' && key.toLowerCase().includes('parse')) {
+            parseFunction = pdfParse[key];
+            break;
+          }
+        }
+      }
+      
+      if (!parseFunction) {
+        throw new Error('Could not find a parse function in pdf-parse module');
+      }
+      
+      const pdfData = await parseFunction(buffer);
       text = pdfData.text;
       
       console.log(`PDF text extraction successful for ${pdfFile.name}:`, {
