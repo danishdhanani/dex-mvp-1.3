@@ -94,13 +94,13 @@
     }
   },
   {
-    "id": "1760976531485_1e1t7f379",
+    "id": "1760979963218_y2goge4kl",
     "title": "Hoshizaki Ice Machine KM-1200 SRE - Service Manual",
     "filename": "HOS-KM-1200SE_sm.pdf",
-    "content": "HOSHIZAKI KM-1200 SRE SERVICE MANUAL\n\nPage 10 - Defrost System Operation\n\nThe defrost timer starts counting when the thermostat senses 48°F at the evaporator outlet. This temperature threshold ensures proper ice formation before initiating the defrost cycle.\n\nDefrost Timer Operation:\n- Timer activates when evaporator outlet temperature reaches 48°F\n- Defrost cycle duration: 3-5 minutes\n- Hot gas valve opens during defrost cycle\n- Water pump operates to remove melted ice\n- Timer resets after defrost cycle completion\n\nPage 15 - Troubleshooting Defrost Issues\n\nIf defrost timer fails to start:\n1. Check evaporator outlet temperature sensor\n2. Verify thermostat calibration (should trigger at 48°F)\n3. Test timer motor operation\n4. Check control board defrost relay\n\nIf defrost cycle terminates prematurely:\n1. Check defrost thermostat resistance at room temperature\n2. Verify defrost thermostat closes at 48°F\n3. Test defrost timer motor operation\n4. Inspect hot gas valve operation\n\nDefrost Thermostat Testing:\n- Location: Mounted on evaporator outlet\n- Normal resistance at room temperature: 0 ohms (closed)\n- Opens at 48°F to terminate defrost cycle\n- If reads open (infinite resistance) at room temp, thermostat is faulty\n\nPage 20 - Electrical Specifications\n\nDefrost Timer Specifications:\n- Voltage: 24V AC\n- Current: 0.5A\n- Temperature sensor: NTC thermistor\n- Activation temperature: 48°F ±2°F\n- Timer motor: Synchronous, 1 RPM\n\nDefrost Thermostat Specifications:\n- Type: Bimetal snap-action\n- Close temperature: 48°F\n- Open temperature: 48°F\n- Normal resistance when closed: 0 ohms\n- Normal resistance when open: Infinite ohms\n- Location: Mounted on evaporator outlet\n\nPage 25 - Maintenance Procedures\n\nMonthly defrost system check:\n1. Verify 48°F activation temperature\n2. Test timer motor operation\n3. Clean evaporator coils\n4. Check hot gas valve operation\n5. Inspect water drain system",
+    "content": "[PDF File: HOS-KM-1200SE_sm.pdf]\n\nPDF text extraction failed. The PDF might be image-based, password-protected, or corrupted.\n\nTo make this content searchable, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nError details: pdfParse is not a function",
     "category": "Service Manual",
-    "uploadedAt": "2025-10-20T16:08:51.485Z",
-    "size": 1200,
+    "uploadedAt": "2025-10-20T17:06:03.218Z",
+    "size": 394,
     "tags": [],
     "unitInfo": {
       "brand": "Hoshizaki",

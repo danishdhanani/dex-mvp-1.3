@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import pdfParse from 'pdf-parse';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,9 +20,6 @@ export async function POST(request: NextRequest) {
     // Extract text from PDF using pdf-parse
     let text: string;
     try {
-      // Dynamic import to avoid server-side issues
-      const pdfParseModule = await import('pdf-parse');
-      const pdfParse = pdfParseModule.default || pdfParseModule;
       const pdfData = await pdfParse(buffer);
       text = pdfData.text;
       
