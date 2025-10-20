@@ -275,6 +275,7 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
   if (checklistItems.length === 0) {
     return (
       <div className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
+        <div className="text-green-400 text-xs mb-2">✓ Direct Answer (No Checklist)</div>
         {response}
       </div>
     );
@@ -282,6 +283,7 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
 
   return (
     <div className="space-y-3">
+      <div className="text-blue-400 text-xs mb-2">📋 Checklist Format</div>
       {checklistItems.map((item) => (
         <div
           key={item.id}
