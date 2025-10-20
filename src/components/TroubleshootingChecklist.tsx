@@ -287,7 +287,27 @@ export default function TroubleshootingChecklist({ response, sourceContent }: Tr
 
     return (
       <div className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
-        <div className="text-green-400 text-xs mb-2">✓ Direct Answer (No Checklist)</div>
+        <div className="flex justify-between items-center mb-2">
+          <div className="text-green-400 text-xs">✓ Direct Answer (No Checklist)</div>
+          {sourceContent && (
+            <button
+              onClick={() => setShowSource(!showSource)}
+              className="text-xs text-blue-400 hover:text-blue-300 underline"
+            >
+              {showSource ? 'Hide Source' : 'View Source'}
+            </button>
+          )}
+        </div>
+        
+        {showSource && sourceContent && (
+          <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-xs mb-3">
+            <div className="text-gray-400 mb-2">📖 Source Material Used:</div>
+            <pre className="whitespace-pre-wrap text-gray-300 font-mono text-xs leading-relaxed">
+              {sourceContent}
+            </pre>
+          </div>
+        )}
+        
         <div dangerouslySetInnerHTML={{ __html: processResponse(response) }} />
       </div>
     );
