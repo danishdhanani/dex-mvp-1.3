@@ -20,23 +20,34 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
     // Parse response text into checklist items
     const items: ChecklistItem[] = [];
     
-    // First, try to detect if this looks like a multi-step response
-    const hasMultipleSteps = /(\d+\.|\n\s*[-•]|\n\s*\*|\n\s*Step|\n\s*Check|\n\s*Verify)/i.test(text);
+    // Check if this is a direct answer (contains "Reference:" or "According to")
+    const hasReference = text.includes('Reference:') || text.includes('According to');
     
-    // Check if this is a direct answer (contains "Reference:" or "According to" and is short)
-    const isDirectAnswer = (
-      (text.includes('Reference:') || text.includes('According to')) &&
-      text.length < 500 && // Short response
-      !hasMultipleSteps
-    );
+    // Check for multi-step indicators
+    const hasNumberedSteps = /\d+\.\s+[A-Z]/.test(text); // Pattern like "1. Check" or "2. Verify"
+    const hasStepWords = /\b(Step|Check|Verify)\s+\d+/i.test(text); // Pattern like "Step 1" or "Check 2"
+    const hasBulletPoints = /^\s*[-•*]\s+/m.test(text); // Bullet points at start of lines
+    
+    const isDirectAnswer = hasReference && !hasNumberedSteps && !hasStepWords && !hasBulletPoints;
+    
+    // Debug logging
+    console.log('Response analysis:', {
+      hasReference,
+      hasNumberedSteps,
+      hasStepWords,
+      hasBulletPoints,
+      isDirectAnswer,
+      textLength: text.length,
+      textPreview: text.substring(0, 100)
+    });
     
     if (isDirectAnswer) {
       // Return empty array to indicate this should be displayed as plain text
       return [];
     }
     
-    if (!hasMultipleSteps) {
-      // If it doesn't look like multiple steps, return as single item
+    // If it's not a direct answer and doesn't have clear multi-step indicators, treat as single item
+    if (!hasNumberedSteps && !hasStepWords && !hasBulletPoints) {
       return [{
         id: 'single-response',
         title: 'Response',
