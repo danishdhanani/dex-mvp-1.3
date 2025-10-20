@@ -25,43 +25,53 @@ export async function POST(request: NextRequest) {
       try {
         const PDFParser = require('pdf2json');
         
-        const parsePDF = (buffer: Buffer): Promise<string> => {
-          return new Promise((resolve, reject) => {
-            const pdfParser = new PDFParser();
-            
-            pdfParser.on('pdfParser_dataError', (errData: any) => {
-              reject(new Error(errData.parserError));
-            });
-            
-            pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
-              try {
-                let extractedText = '';
-                
-                if (pdfData.Pages && Array.isArray(pdfData.Pages)) {
-                  for (const page of pdfData.Pages) {
-                    if (page.Texts && Array.isArray(page.Texts)) {
-                      for (const textItem of page.Texts) {
-                        if (textItem.R && Array.isArray(textItem.R)) {
-                          for (const run of textItem.R) {
-                            if (run.T) {
-                              extractedText += decodeURIComponent(run.T) + ' ';
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-                
-                resolve(extractedText.trim());
-              } catch (error) {
-                reject(error);
-              }
-            });
-            
-            pdfParser.parseBuffer(buffer);
-          });
-        };
+               const parsePDF = (buffer: Buffer): Promise<string> => {
+                 return new Promise((resolve, reject) => {
+                   const pdfParser = new PDFParser();
+                   
+                   // Set a timeout for the entire parsing operation
+                   const timeout = setTimeout(() => {
+                     reject(new Error('PDF parsing timeout - pdf2json took too long'));
+                   }, 20000); // 20 second timeout
+
+                   pdfParser.on('pdfParser_dataError', (errData: any) => {
+                     clearTimeout(timeout);
+                     reject(new Error(errData.parserError));
+                   });
+
+                   pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
+                     clearTimeout(timeout);
+                     try {
+                       let extractedText = '';
+
+                       if (pdfData.Pages && Array.isArray(pdfData.Pages)) {
+                         // Limit to first 10 pages to prevent memory issues
+                         const pagesToProcess = pdfData.Pages.slice(0, 10);
+                         
+                         for (const page of pagesToProcess) {
+                           if (page.Texts && Array.isArray(page.Texts)) {
+                             for (const textItem of page.Texts) {
+                               if (textItem.R && Array.isArray(textItem.R)) {
+                                 for (const run of textItem.R) {
+                                   if (run.T) {
+                                     extractedText += decodeURIComponent(run.T) + ' ';
+                                   }
+                                 }
+                               }
+                             }
+                           }
+                         }
+                       }
+
+                       resolve(extractedText.trim());
+                     } catch (error) {
+                       reject(error);
+                     }
+                   });
+
+                   pdfParser.parseBuffer(buffer);
+                 });
+               };
         
         text = await parsePDF(buffer);
         extractionMethod = 'pdf2json';
@@ -134,18 +144,19 @@ export async function POST(request: NextRequest) {
         console.warn(`PDF ${pdfFile.name} extracted only ${text.trim().length} characters with ${extractionMethod}, which might indicate parsing issues`);
       }
       
-    } catch (pdfError) {
-      console.error('PDF parsing error:', pdfError);
-      
-      // Return error instead of fallback text when PDF parsing fails
-      return NextResponse.json(
-        { 
-          error: 'PDF text extraction failed. The PDF might be image-based, password-protected, or corrupted. Please try uploading a text file instead.',
-          details: pdfError instanceof Error ? pdfError.message : 'Unknown error'
-        },
-        { status: 400 }
-      );
-    }
+           } catch (pdfError) {
+             console.error('PDF parsing error:', pdfError);
+
+             // Return error instead of fallback text when PDF parsing fails
+             return NextResponse.json(
+               {
+                 error: 'PDF text extraction failed. The PDF might be image-based, password-protected, or corrupted. Please try uploading a text file instead.',
+                 details: pdfError instanceof Error ? pdfError.message : 'Unknown error',
+                 suggestion: 'For image-based PDFs, consider using an OCR tool to convert to text first.'
+               },
+               { status: 400 }
+             );
+           }
 
     if (!text || text.trim().length === 0) {
       return NextResponse.json(
