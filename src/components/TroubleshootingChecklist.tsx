@@ -20,8 +20,8 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
     // Parse response text into checklist items
     const items: ChecklistItem[] = [];
     
-    // Check if this is a direct answer (contains "Reference:" or "According to")
-    const hasReference = text.includes('Reference:') || text.includes('According to');
+    // Check if this is a direct answer (contains "Reference:", "According to", or "Source:")
+    const hasReference = text.includes('Reference:') || text.includes('According to') || text.includes('Source:');
     
     // Check for multi-step indicators
     const hasNumberedSteps = /\d+\.\s+[A-Z]/.test(text); // Pattern like "1. Check" or "2. Verify"
@@ -273,10 +273,20 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
 
   // If no checklist items (direct answer), render as plain text
   if (checklistItems.length === 0) {
+    // Process the response to style source citations
+    const processResponse = (text: string) => {
+      // Convert markdown italic to HTML italic for source citations
+      const processedText = text
+        .replace(/\*Source:([^*]+)\*/g, '<em class="text-gray-400 text-xs">Source:$1</em>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      
+      return processedText;
+    };
+
     return (
       <div className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
         <div className="text-green-400 text-xs mb-2">✓ Direct Answer (No Checklist)</div>
-        {response}
+        <div dangerouslySetInnerHTML={{ __html: processResponse(response) }} />
       </div>
     );
   }
