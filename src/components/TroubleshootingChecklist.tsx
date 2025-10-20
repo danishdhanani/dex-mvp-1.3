@@ -24,7 +24,7 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
     const hasReference = text.includes('Reference:') || text.includes('According to') || text.includes('Source:');
     
     // Check for multi-step indicators
-    const hasNumberedSteps = /\d+\.\s+[A-Z]/.test(text); // Pattern like "1. Check" or "2. Verify"
+    const hasNumberedSteps = /\d+\.\s+/.test(text); // Pattern like "1. " or "2. " (any numbered list)
     const hasStepWords = /\b(Step|Check|Verify)\s+\d+/i.test(text); // Pattern like "Step 1" or "Check 2"
     const hasBulletPoints = /^\s*[-•*]\s+/m.test(text); // Bullet points at start of lines
     
