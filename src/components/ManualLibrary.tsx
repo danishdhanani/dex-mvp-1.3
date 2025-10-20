@@ -32,6 +32,11 @@ export default function ManualLibrary() {
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pdfExtractionStatus, setPdfExtractionStatus] = useState<{
+    status: 'idle' | 'extracting' | 'success' | 'failed';
+    message: string;
+    extractedTextLength?: number;
+  }>({ status: 'idle', message: '' });
   
   // Preview modal state
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -114,6 +119,7 @@ export default function ManualLibrary() {
     }
 
     setUploading(true);
+    setPdfExtractionStatus({ status: 'idle', message: '' });
 
     try {
       console.log('Starting file upload:', {
@@ -133,8 +139,15 @@ export default function ManualLibrary() {
         console.log('Processing text file...');
         content = await uploadForm.file.text();
         console.log('Text content length:', content.length);
+        setPdfExtractionStatus({ 
+          status: 'success', 
+          message: `Text file loaded - ${content.length} characters`,
+          extractedTextLength: content.length
+        });
       } else if (fileExtension === 'pdf') {
         // For PDF files, we'll send the file to the server for text extraction
+        setPdfExtractionStatus({ status: 'extracting', message: 'Extracting text from PDF...' });
+        
         // Use FormData for more efficient file transmission
         const formData = new FormData();
         formData.append('pdfFile', uploadForm.file);
@@ -151,13 +164,36 @@ export default function ManualLibrary() {
         console.log('PDF result:', pdfResult);
         
         if (!pdfResponse.ok) {
+          setPdfExtractionStatus({ 
+            status: 'failed', 
+            message: `PDF extraction failed: ${pdfResult.error || 'Server error'}` 
+          });
           throw new Error(pdfResult.error || 'Failed to extract text from PDF');
         }
         
         content = pdfResult.text;
         
+        // Check if extraction was successful
         if (!content || content.trim().length === 0) {
+          setPdfExtractionStatus({ 
+            status: 'failed', 
+            message: 'PDF extraction failed - no text content found' 
+          });
           throw new Error('Could not extract text from PDF. The PDF might be image-based or corrupted.');
+        }
+        
+        // Check if content contains error messages
+        if (content.includes('PDF text extraction failed') || content.includes('PDF might be image-based')) {
+          setPdfExtractionStatus({ 
+            status: 'failed', 
+            message: 'PDF extraction failed - file may be image-based or corrupted' 
+          });
+        } else {
+          setPdfExtractionStatus({ 
+            status: 'success', 
+            message: `PDF extraction successful - ${content.length} characters extracted`,
+            extractedTextLength: content.length
+          });
         }
       } else {
         throw new Error(`Unsupported file type: ${fileExtension}`);
@@ -567,7 +603,10 @@ export default function ManualLibrary() {
                 <input
                   type="file"
                   accept=".txt,.md,.pdf"
-                  onChange={(e) => setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null })}
+                  onChange={(e) => {
+                    setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null });
+                    setPdfExtractionStatus({ status: 'idle', message: '' });
+                  }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   required
                 />
@@ -586,6 +625,41 @@ export default function ManualLibrary() {
               <p className="text-sm text-gray-400 mt-2">
                 Supported formats: TXT, MD, PDF (max 5MB)
               </p>
+              
+              {/* PDF Extraction Status Indicator */}
+              {pdfExtractionStatus.status !== 'idle' && (
+                <div className={`mt-3 p-3 rounded-lg border ${
+                  pdfExtractionStatus.status === 'extracting' 
+                    ? 'bg-blue-900/20 border-blue-500 text-blue-300'
+                    : pdfExtractionStatus.status === 'success'
+                    ? 'bg-green-900/20 border-green-500 text-green-300'
+                    : 'bg-red-900/20 border-red-500 text-red-300'
+                }`}>
+                  <div className="flex items-center space-x-2">
+                    {pdfExtractionStatus.status === 'extracting' && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-300 border-t-transparent"></div>
+                    )}
+                    {pdfExtractionStatus.status === 'success' && (
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                    {pdfExtractionStatus.status === 'failed' && (
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                    <span className="text-sm font-medium">
+                      {pdfExtractionStatus.message}
+                    </span>
+                  </div>
+                  {pdfExtractionStatus.status === 'failed' && (
+                    <p className="text-xs mt-2 opacity-80">
+                      The file will still be uploaded, but the AI may not be able to search its content effectively.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex space-x-4">
@@ -598,7 +672,10 @@ export default function ManualLibrary() {
               </button>
               <button
                 type="button"
-                onClick={() => setShowUploadForm(false)}
+                onClick={() => {
+                  setShowUploadForm(false);
+                  setPdfExtractionStatus({ status: 'idle', message: '' });
+                }}
                 className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
               >
                 Cancel
