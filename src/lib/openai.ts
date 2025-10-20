@@ -64,10 +64,15 @@ FINAL STEP GUIDELINES:
   - "Verify [specific system parameter] meets manufacturer specifications"
   - "Consider [specific advanced diagnostic] if standard procedures fail"
 
-You have access to uploaded HVAC/R manuals and documentation. Extract and cite specific procedures, measurements, and test points from these documents. If information is not available in the provided documents, clearly state what specific information is missing and what the technician should look for in their service documentation.`;
+You have access to uploaded HVAC/R manuals and documentation. Extract and cite specific procedures, measurements, and test points from these documents. If information is not available in the provided documents, clearly state what specific information is missing and what the technician should look for in their service documentation.
+
+CONVERSATION CONTEXT:
+- Pay attention to the conversation history to understand what the technician is referring to
+- If the current question seems incomplete or refers to something from previous messages, use the conversation context to provide a complete answer
+- For example, if someone asks "how long should it last for?" after discussing a defrost timer, they're asking about the defrost cycle duration`;
   }
 
-  async generateResponse(userMessage: string, contextDocuments: string, unitInfo?: any): Promise<string> {
+  async generateResponse(userMessage: string, contextDocuments: string, unitInfo?: any, conversationHistory?: any[]): Promise<string> {
     try {
       // Create unit-specific system prompt if unit info is provided
       let systemPrompt = this.systemPrompt;
@@ -93,12 +98,19 @@ If the provided documents don't contain information for this specific model, cle
         {
           role: 'system',
           content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: `Context from HVAC/R manuals:\n${contextDocuments}\n\nUser question: ${userMessage}`
         }
       ];
+
+      // Add conversation history if available
+      if (conversationHistory && conversationHistory.length > 0) {
+        messages.push(...conversationHistory);
+      }
+
+      // Add current message with context
+      messages.push({
+        role: 'user',
+        content: `Context from HVAC/R manuals:\n${contextDocuments}\n\nUser question: ${userMessage}`
+      });
 
       const completion = await this.client.chat.completions.create({
         model: 'gpt-4o-mini', // Better model for technical content
@@ -120,18 +132,25 @@ If the provided documents don't contain information for this specific model, cle
     }
   }
 
-  async generateResponseWithoutContext(userMessage: string): Promise<string> {
+  async generateResponseWithoutContext(userMessage: string, conversationHistory?: any[]): Promise<string> {
     try {
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         {
           role: 'system',
           content: this.systemPrompt + '\n\nNote: You do not have access to specific manual documents for this query. Provide general HVAC/R guidance and suggest that the user upload relevant manuals for more specific information.'
-        },
-        {
-          role: 'user',
-          content: userMessage
         }
       ];
+
+      // Add conversation history if available
+      if (conversationHistory && conversationHistory.length > 0) {
+        messages.push(...conversationHistory);
+      }
+
+      // Add current message
+      messages.push({
+        role: 'user',
+        content: userMessage
+      });
 
       const completion = await this.client.chat.completions.create({
         model: 'gpt-4o-mini', // Better model for technical content

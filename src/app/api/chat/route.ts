@@ -4,7 +4,7 @@ import { documentService } from '@/lib/documents';
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, unitInfo } = await request.json();
+    const { message, unitInfo, conversationHistory } = await request.json();
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -27,10 +27,10 @@ export async function POST(request: NextRequest) {
     
     if (contextDocuments.includes('No relevant documents found')) {
       // No documents available, generate response without context
-      response = await openaiService.generateResponseWithoutContext(message);
+      response = await openaiService.generateResponseWithoutContext(message, conversationHistory);
     } else {
       // Generate response with document context and unit information
-      response = await openaiService.generateResponse(message, contextDocuments, unitInfo);
+      response = await openaiService.generateResponse(message, contextDocuments, unitInfo, conversationHistory);
     }
     
     return NextResponse.json({ 

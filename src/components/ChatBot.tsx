@@ -132,6 +132,12 @@ export default function ChatBot() {
     setMessages(prev => [...prev, botMessage]);
 
     try {
+      // Include conversation history for context (last 4 messages)
+      const conversationHistory = messages.slice(-4).map(msg => ({
+        role: msg.isUser ? 'user' : 'assistant',
+        content: msg.text
+      }));
+
       const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: {
@@ -139,7 +145,8 @@ export default function ChatBot() {
         },
         body: JSON.stringify({ 
           message: messageText,
-          unitInfo: selectedUnit // Include unit information
+          unitInfo: selectedUnit, // Include unit information
+          conversationHistory: conversationHistory // Include conversation context
         }),
       });
 
