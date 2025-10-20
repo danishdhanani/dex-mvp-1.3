@@ -1,0 +1,196 @@
+HOSHIZAKI ICE MACHINE
+KM-1200SRE SERIES
+SERVICE MANUAL
+
+TABLE OF CONTENTS
+1. Safety Information
+2. Technical Specifications
+3. Installation Instructions
+4. Operation Procedures
+5. Maintenance Schedule
+6. Troubleshooting Guide
+7. Parts List
+8. Wiring Diagrams
+
+1. SAFETY INFORMATION
+WARNING: This equipment must be installed and serviced by qualified personnel only.
+- Disconnect power before servicing
+- Use proper safety equipment
+- Follow all local codes and regulations
+- Never operate with damaged components
+
+2. TECHNICAL SPECIFICATIONS
+Model: KM-1200SRE
+Type: Self-contained ice machine
+Ice Production: 1,200 lbs per 24 hours
+Ice Type: Crescent-shaped cubes
+Refrigerant: R-404A
+Power: 208-230V, 60Hz, 3-phase
+Water Supply: 20-80 PSI
+Dimensions: 32" W x 28" D x 66" H
+Weight: 485 lbs
+
+3. INSTALLATION INSTRUCTIONS
+3.1 Location Requirements
+- Minimum 6" clearance on all sides
+- Level surface with proper drainage
+- Adequate ventilation
+- Access to water supply and drain
+
+3.2 Water Connection
+- Connect to cold water supply (20-80 PSI)
+- Install water filter if required
+- Connect drain line with proper slope
+
+3.3 Electrical Connection
+- Connect to 208-230V, 60Hz, 3-phase power
+- Use proper grounding
+- Install disconnect switch within sight
+
+4. OPERATION PROCEDURES
+4.1 Initial Startup
+1. Ensure all connections are secure
+2. Turn on water supply
+3. Turn on electrical power
+4. Press ON/OFF switch to start
+5. Allow 15 minutes for initial ice production
+
+4.2 Normal Operation
+- Machine will automatically cycle on/off
+- Ice will be harvested every 15-20 minutes
+- Monitor ice quality and production rate
+- Check water level in reservoir
+
+4.3 Shutdown Procedure
+1. Press ON/OFF switch to stop
+2. Allow ice to be harvested
+3. Turn off water supply
+4. Turn off electrical power
+
+5. MAINTENANCE SCHEDULE
+Daily:
+- Check ice quality and production
+- Clean exterior surfaces
+- Check for leaks
+
+Weekly:
+- Clean water distribution system
+- Check water filter condition
+- Inspect ice thickness
+
+Monthly:
+- Clean condenser coils
+- Check evaporator for scale buildup
+- Inspect all electrical connections
+- Test safety controls
+
+Quarterly:
+- Replace water filter
+- Clean and sanitize water system
+- Check refrigerant charge
+- Calibrate controls
+
+Annually:
+- Complete system inspection
+- Replace worn components
+- Update service records
+
+6. TROUBLESHOOTING GUIDE
+
+Problem: No ice production
+Possible Causes:
+- Power not connected
+- Water supply off
+- Low water pressure
+- Faulty control board
+- Refrigerant leak
+
+Solutions:
+- Check electrical connections
+- Verify water supply is on
+- Check water pressure (20-80 PSI)
+- Test control board functions
+- Check for refrigerant leaks
+
+Problem: Poor ice quality
+Possible Causes:
+- Dirty water filter
+- Scale buildup on evaporator
+- Incorrect water temperature
+- Low refrigerant charge
+
+Solutions:
+- Replace water filter
+- Clean evaporator with approved cleaner
+- Check water temperature (45-90°F)
+- Check refrigerant charge
+
+Problem: Machine cycles too frequently
+Possible Causes:
+- Dirty condenser coils
+- High ambient temperature
+- Low water pressure
+- Faulty temperature sensor
+
+Solutions:
+- Clean condenser coils
+- Improve ventilation
+- Check water pressure
+- Test temperature sensor
+
+Problem: Water leaks
+Possible Causes:
+- Loose connections
+- Damaged gaskets
+- Clogged drain line
+- Cracked water lines
+
+Solutions:
+- Tighten all connections
+- Replace damaged gaskets
+- Clean drain line
+- Replace cracked water lines
+
+7. PARTS LIST
+Common replacement parts:
+- Water filter: Part # WF-100
+- Evaporator gasket: Part # EG-1200
+- Water inlet valve: Part # WIV-1200
+- Control board: Part # CB-1200SRE
+- Temperature sensor: Part # TS-1200
+- Condenser fan motor: Part # CFM-1200
+- Water pump: Part # WP-1200
+
+8. WIRING DIAGRAMS
+[Note: Detailed wiring diagrams would be included here in a real manual]
+
+CONTROL BOARD CONNECTIONS:
+- J1: Power input (208-230V, 3-phase)
+- J2: Water pump motor
+- J3: Condenser fan motor
+- J4: Temperature sensors
+- J5: Safety switches
+- J6: Display panel
+
+SERVICE NOTES:
+- Always use genuine Hoshizaki parts
+- Keep service records updated
+- Follow all safety procedures
+- Contact authorized service center for major repairs
+
+WARRANTY INFORMATION:
+- 1 year parts and labor warranty
+- 5 year compressor warranty
+- Warranty void if unauthorized modifications made
+
+CONTACT INFORMATION:
+Hoshizaki America, Inc.
+6185 Hoshizaki Way
+Peachtree City, GA 30269
+Phone: (770) 487-2331
+Website: www.hoshizaki.com
+
+This manual covers the KM-1200SRE series ice machines. For other models, refer to the appropriate service manual.
+
+Document Version: 1.0
+Last Updated: January 2024

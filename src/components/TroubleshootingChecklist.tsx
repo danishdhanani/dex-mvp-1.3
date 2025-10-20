@@ -12,10 +12,56 @@ interface TroubleshootingChecklistProps {
   sourceContent?: string; // Optional source content to display
 }
 
+interface SourceSnippet {
+  text: string;
+  source: string;
+  page?: string;
+}
+
 export default function TroubleshootingChecklist({ response, sourceContent }: TroubleshootingChecklistProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
   const [showSource, setShowSource] = useState(false);
+
+  // Extract source snippets from the response
+  const extractSourceSnippets = (text: string): SourceSnippet[] => {
+    const snippets: SourceSnippet[] = [];
+    
+    // Find all source references in the text
+    const sourceMatches = text.match(/\*Source:([^*]+)\*/g);
+    const inferredMatches = text.match(/\*Inferred from ([^*]+)\*/g);
+    const generalMatches = text.match(/\*General HVAC troubleshooting guidance\*/g);
+    
+    if (sourceMatches) {
+      sourceMatches.forEach(match => {
+        const sourceText = match.replace(/\*Source:|\*/g, '').trim();
+        const [source, page] = sourceText.split(' - ');
+        
+        // Try to find the actual text snippet in the source content
+        if (sourceContent) {
+          const lines = sourceContent.split('\n');
+          const relevantLines = lines.filter(line => 
+            line.toLowerCase().includes('115vac') || 
+            line.toLowerCase().includes('voltage') ||
+            line.toLowerCase().includes('power') ||
+            line.toLowerCase().includes('supply')
+          );
+          
+          if (relevantLines.length > 0) {
+            snippets.push({
+              text: relevantLines.slice(0, 3).join('\n'),
+              source: source,
+              page: page
+            });
+          }
+        }
+      });
+    }
+    
+    return snippets;
+  };
+
+  const sourceSnippets = extractSourceSnippets(response);
 
   // Parse the response to extract steps
   const parseResponse = (text: string): ChecklistItem[] => {
@@ -273,38 +319,48 @@ export default function TroubleshootingChecklist({ response, sourceContent }: Tr
 
   const checklistItems = parseResponse(response);
 
+  // Process the response to style source citations
+  const processResponse = (text: string) => {
+    // Convert markdown italic to HTML italic for source citations
+    const processedText = text
+      .replace(/\*Source:([^*]+)\*/g, '<em class="text-gray-400 text-xs">Source:$1</em>')
+      .replace(/\*Inferred from ([^*]+)\*/g, '<em class="text-gray-400 text-xs">Inferred from $1</em>')
+      .replace(/\*General HVAC troubleshooting guidance\*/g, '<em class="text-blue-400 text-xs">General HVAC troubleshooting guidance</em>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    
+    return processedText;
+  };
+
   // If no checklist items (direct answer), render as plain text
   if (checklistItems.length === 0) {
-    // Process the response to style source citations
-    const processResponse = (text: string) => {
-      // Convert markdown italic to HTML italic for source citations
-      const processedText = text
-        .replace(/\*Source:([^*]+)\*/g, '<em class="text-gray-400 text-xs">Source:$1</em>')
-        .replace(/\*([^*]+)\*/g, '<em>$1</em>');
-      
-      return processedText;
-    };
 
     return (
       <div className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
         <div className="flex justify-between items-center mb-2">
           <div className="text-green-400 text-xs">✓ Direct Answer (No Checklist)</div>
-          {sourceContent && (
+          {sourceSnippets.length > 0 && (
             <button
               onClick={() => setShowSource(!showSource)}
               className="text-xs text-blue-400 hover:text-blue-300 underline"
             >
-              {showSource ? 'Hide Source' : 'View Source'}
+              {showSource ? 'Hide Sources' : 'View Sources'}
             </button>
           )}
         </div>
         
-        {showSource && sourceContent && (
+        {showSource && sourceSnippets.length > 0 && (
           <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-xs mb-3">
-            <div className="text-gray-400 mb-2">📖 Source Material Used:</div>
-            <pre className="whitespace-pre-wrap text-gray-300 font-mono text-xs leading-relaxed">
-              {sourceContent}
-            </pre>
+            <div className="text-gray-400 mb-2">📖 Source Snippets Used:</div>
+            {sourceSnippets.map((snippet, index) => (
+              <div key={index} className="mb-3 last:mb-0">
+                <div className="text-gray-300 font-medium mb-1">
+                  {snippet.source}{snippet.page && ` - ${snippet.page}`}
+                </div>
+                <pre className="whitespace-pre-wrap text-gray-300 font-mono text-xs leading-relaxed bg-gray-900 p-2 rounded border">
+                  {snippet.text}
+                </pre>
+              </div>
+            ))}
           </div>
         )}
         
@@ -317,22 +373,29 @@ export default function TroubleshootingChecklist({ response, sourceContent }: Tr
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <div className="text-blue-400 text-xs">📋 Checklist Format</div>
-        {sourceContent && (
+        {sourceSnippets.length > 0 && (
           <button
             onClick={() => setShowSource(!showSource)}
             className="text-xs text-blue-400 hover:text-blue-300 underline"
           >
-            {showSource ? 'Hide Source' : 'View Source'}
+            {showSource ? 'Hide Sources' : 'View Sources'}
           </button>
         )}
       </div>
       
-      {showSource && sourceContent && (
+      {showSource && sourceSnippets.length > 0 && (
         <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-xs">
-          <div className="text-gray-400 mb-2">📖 Source Material Used:</div>
-          <pre className="whitespace-pre-wrap text-gray-300 font-mono text-xs leading-relaxed">
-            {sourceContent}
-          </pre>
+          <div className="text-gray-400 mb-2">📖 Source Snippets Used:</div>
+          {sourceSnippets.map((snippet, index) => (
+            <div key={index} className="mb-3 last:mb-0">
+              <div className="text-gray-300 font-medium mb-1">
+                {snippet.source}{snippet.page && ` - ${snippet.page}`}
+              </div>
+              <pre className="whitespace-pre-wrap text-gray-300 font-mono text-xs leading-relaxed bg-gray-900 p-2 rounded border">
+                {snippet.text}
+              </pre>
+            </div>
+          ))}
         </div>
       )}
       {checklistItems.map((item) => (
@@ -381,7 +444,7 @@ export default function TroubleshootingChecklist({ response, sourceContent }: Tr
               {/* Expanded description */}
               {expandedItems.has(item.id) && item.description && (
                 <div className="mt-3 text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
-                  {item.description}
+                  <div dangerouslySetInnerHTML={{ __html: processResponse(item.description) }} />
                 </div>
               )}
             </div>

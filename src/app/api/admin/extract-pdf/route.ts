@@ -16,46 +16,135 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await pdfFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Extract text from PDF using pdf-parse
-    let text: string;
+    // Extract text from PDF using multiple approaches
+    let text: string = '';
+    let extractionMethod = '';
+    
     try {
-      // Try to use pdf-parse as a function directly
-      const pdfParse = require('pdf-parse');
-      
-      // Check if it's a function or if we need to access it differently
-      let parseFunction;
-      if (typeof pdfParse === 'function') {
-        parseFunction = pdfParse;
-      } else if (pdfParse.default && typeof pdfParse.default === 'function') {
-        parseFunction = pdfParse.default;
-      } else {
-        // Try to find a function in the module
-        const keys = Object.keys(pdfParse);
-        for (const key of keys) {
-          if (typeof pdfParse[key] === 'function' && key.toLowerCase().includes('parse')) {
-            parseFunction = pdfParse[key];
-            break;
-          }
-        }
+      // Method 1: Try pdf2json first
+      try {
+        const PDFParser = require('pdf2json');
+        
+        const parsePDF = (buffer: Buffer): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const pdfParser = new PDFParser();
+            
+            pdfParser.on('pdfParser_dataError', (errData: any) => {
+              reject(new Error(errData.parserError));
+            });
+            
+            pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
+              try {
+                let extractedText = '';
+                
+                if (pdfData.Pages && Array.isArray(pdfData.Pages)) {
+                  for (const page of pdfData.Pages) {
+                    if (page.Texts && Array.isArray(page.Texts)) {
+                      for (const textItem of page.Texts) {
+                        if (textItem.R && Array.isArray(textItem.R)) {
+                          for (const run of textItem.R) {
+                            if (run.T) {
+                              extractedText += decodeURIComponent(run.T) + ' ';
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                resolve(extractedText.trim());
+              } catch (error) {
+                reject(error);
+              }
+            });
+            
+            pdfParser.parseBuffer(buffer);
+          });
+        };
+        
+        text = await parsePDF(buffer);
+        extractionMethod = 'pdf2json';
+        
+        console.log(`PDF text extraction with pdf2json for ${pdfFile.name}:`, {
+          textLength: text.length,
+          firstChars: text.substring(0, 100)
+        });
+        
+      } catch (pdf2jsonError) {
+        console.log('pdf2json failed, trying pdfreader...', pdf2jsonError.message);
+        
+        // Method 2: Try pdfreader as fallback
+        const { PdfReader } = require('pdfreader');
+        
+        const parsePDFWithReader = (buffer: Buffer): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new PdfReader();
+            const textLines: string[] = [];
+            let hasError = false;
+            
+            // Set a timeout to prevent hanging
+            const timeout = setTimeout(() => {
+              if (!hasError) {
+                hasError = true;
+                reject(new Error('PDF parsing timeout - pdfreader took too long'));
+              }
+            }, 30000); // 30 second timeout
+            
+            reader.parseBuffer(buffer, (err: any, item: any) => {
+              if (hasError) return;
+              
+              if (err) {
+                hasError = true;
+                clearTimeout(timeout);
+                reject(err);
+              } else if (!item) {
+                // End of file
+                hasError = true;
+                clearTimeout(timeout);
+                resolve(textLines.join('\n').trim());
+              } else if (item.text) {
+                textLines.push(item.text);
+              }
+            });
+          });
+        };
+        
+        text = await parsePDFWithReader(buffer);
+        extractionMethod = 'pdfreader';
+        
+        console.log(`PDF text extraction with pdfreader for ${pdfFile.name}:`, {
+          textLength: text.length,
+          firstChars: text.substring(0, 100)
+        });
       }
       
-      if (!parseFunction) {
-        throw new Error('Could not find a parse function in pdf-parse module');
+      // Check if we got meaningful text
+      if (!text || text.trim().length === 0) {
+        // Try to provide more specific error message
+        const errorMessage = extractionMethod === 'pdf2json' 
+          ? 'No text content could be extracted from this PDF. It may be an image-based PDF (scanned document) that requires OCR (Optical Character Recognition) to extract text.'
+          : 'No text content could be extracted from this PDF. It may be an image-based PDF or contain only non-text elements.';
+        
+        throw new Error(errorMessage);
       }
       
-      const pdfData = await parseFunction(buffer);
-      text = pdfData.text;
+      // Check if the extracted text is too short (might indicate parsing issues)
+      if (text.trim().length < 50) {
+        console.warn(`PDF ${pdfFile.name} extracted only ${text.trim().length} characters with ${extractionMethod}, which might indicate parsing issues`);
+      }
       
-      console.log(`PDF text extraction successful for ${pdfFile.name}:`, {
-        pages: pdfData.numpages,
-        textLength: text.length,
-        firstChars: text.substring(0, 100)
-      });
     } catch (pdfError) {
       console.error('PDF parsing error:', pdfError);
       
-      // Fallback to placeholder if PDF parsing fails
-      text = `[PDF File: ${pdfFile.name}]\n\nPDF text extraction failed. The PDF might be image-based, password-protected, or corrupted.\n\nTo make this content searchable, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nError details: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`;
+      // Return error instead of fallback text when PDF parsing fails
+      return NextResponse.json(
+        { 
+          error: 'PDF text extraction failed. The PDF might be image-based, password-protected, or corrupted. Please try uploading a text file instead.',
+          details: pdfError instanceof Error ? pdfError.message : 'Unknown error'
+        },
+        { status: 400 }
+      );
     }
 
     if (!text || text.trim().length === 0) {

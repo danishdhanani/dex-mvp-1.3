@@ -168,7 +168,9 @@ export default function ManualLibrary() {
             status: 'failed', 
             message: `PDF extraction failed: ${pdfResult.error || 'Server error'}` 
           });
-          throw new Error(pdfResult.error || 'Failed to extract text from PDF');
+          // Don't continue with upload if PDF extraction failed
+          setUploading(false);
+          return;
         }
         
         content = pdfResult.text;
@@ -179,10 +181,12 @@ export default function ManualLibrary() {
             status: 'failed', 
             message: 'PDF extraction failed - no text content found' 
           });
-          throw new Error('Could not extract text from PDF. The PDF might be image-based or corrupted.');
+          // Don't continue with upload if PDF extraction failed
+          setUploading(false);
+          return;
         }
         
-        // Check if content contains error messages
+        // Check if content contains error messages (fallback check)
         if (content.includes('PDF text extraction failed') || content.includes('PDF might be image-based')) {
           setPdfExtractionStatus({ 
             status: 'failed', 
@@ -658,7 +662,7 @@ export default function ManualLibrary() {
                   </div>
                   {pdfExtractionStatus.status === 'failed' && (
                     <p className="text-xs mt-2 opacity-80">
-                      The file will still be uploaded, but the AI may not be able to search its content effectively.
+                      Upload has been cancelled. Please try a different file or convert the PDF to text format.
                     </p>
                   )}
                 </div>
@@ -668,16 +672,41 @@ export default function ManualLibrary() {
             <div className="flex space-x-4">
               <button
                 type="submit"
-                disabled={uploading || !uploadForm.file || !uploadForm.title.trim()}
+                disabled={uploading || !uploadForm.file || !uploadForm.title.trim() || pdfExtractionStatus.status === 'failed'}
                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
               >
                 {uploading ? 'Uploading...' : 'Upload Manual'}
               </button>
+              {pdfExtractionStatus.status === 'failed' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPdfExtractionStatus({ status: 'idle', message: '' });
+                    setUploadForm({ ...uploadForm, file: null });
+                  }}
+                  className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+                >
+                  Try Different File
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   setShowUploadForm(false);
                   setPdfExtractionStatus({ status: 'idle', message: '' });
+                  setUploadForm({
+                    title: '',
+                    category: 'Service Manual',
+                    tags: '',
+                    file: null,
+                    unitInfo: {
+                      brand: '',
+                      model: '',
+                      series: '',
+                      yearRange: '',
+                      unitType: 'Ice Machine'
+                    }
+                  });
                 }}
                 className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
               >
