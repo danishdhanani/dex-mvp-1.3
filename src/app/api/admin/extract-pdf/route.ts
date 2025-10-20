@@ -16,9 +16,26 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await pdfFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // For now, create a placeholder for PDF files
-    // This allows the upload to work while we implement proper PDF parsing
-    const text = `[PDF File: ${pdfFile.name}]\n\nThis is a PDF file. PDF text extraction is currently being implemented. The file has been uploaded successfully and can be referenced by filename.\n\nTo get the full text content searchable by the AI, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nThis ensures the content is fully searchable by the AI assistant.`;
+    // Extract text from PDF using pdf-parse
+    let text: string;
+    try {
+      // Dynamic import to avoid server-side issues
+      const pdfParseModule = await import('pdf-parse');
+      const pdfParse = pdfParseModule.default || pdfParseModule;
+      const pdfData = await pdfParse(buffer);
+      text = pdfData.text;
+      
+      console.log(`PDF text extraction successful for ${pdfFile.name}:`, {
+        pages: pdfData.numpages,
+        textLength: text.length,
+        firstChars: text.substring(0, 100)
+      });
+    } catch (pdfError) {
+      console.error('PDF parsing error:', pdfError);
+      
+      // Fallback to placeholder if PDF parsing fails
+      text = `[PDF File: ${pdfFile.name}]\n\nPDF text extraction failed. The PDF might be image-based, password-protected, or corrupted.\n\nTo make this content searchable, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nError details: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`;
+    }
 
     if (!text || text.trim().length === 0) {
       return NextResponse.json(

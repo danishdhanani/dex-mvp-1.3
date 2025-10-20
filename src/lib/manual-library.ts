@@ -122,7 +122,7 @@ export class ManualLibrary {
     });
   }
 
-  async getRelevantContent(query: string, maxLength: number = 1500): Promise<string> {
+  async getRelevantContent(query: string, maxLength: number = 2000): Promise<string> {
     const relevantManuals = await this.searchManuals(query);
     
     if (relevantManuals.length === 0) {
@@ -130,23 +130,31 @@ export class ManualLibrary {
     }
 
     let content = '';
-    const searchTerms = query.toLowerCase().split(' ');
+    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2); // Filter out short words
     
     for (const manual of relevantManuals.slice(0, 2)) { // Limit to top 2 manuals
-      // Extract relevant snippets
+      // Extract relevant snippets with better context
       const lines = manual.content.split('\n');
-      const relevantLines: string[] = [];
+      const relevantSnippets: string[] = [];
       
-      // Find lines that contain search terms
-      for (const line of lines) {
-        if (searchTerms.some(term => line.toLowerCase().includes(term))) {
-          relevantLines.push(line.trim());
-          if (relevantLines.length >= 5) break; // Limit to 5 relevant lines per manual
+      // Find lines that contain search terms and include surrounding context
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].toLowerCase();
+        if (searchTerms.some(term => line.includes(term))) {
+          // Include the matching line and surrounding context
+          const start = Math.max(0, i - 1);
+          const end = Math.min(lines.length, i + 3);
+          const snippet = lines.slice(start, end).join('\n').trim();
+          
+          if (snippet && !relevantSnippets.includes(snippet)) {
+            relevantSnippets.push(snippet);
+            if (relevantSnippets.length >= 3) break; // Limit to 3 relevant snippets per manual
+          }
         }
       }
       
-      if (relevantLines.length > 0) {
-        content += `\n\n--- ${manual.title} ---\n${relevantLines.join('\n')}`;
+      if (relevantSnippets.length > 0) {
+        content += `\n\n--- ${manual.title} ---\n${relevantSnippets.join('\n\n')}`;
         if (content.length > maxLength) {
           content = content.substring(0, maxLength) + '...';
           break;
@@ -207,7 +215,7 @@ export class ManualLibrary {
       series?: string;
       unitType?: string;
     },
-    maxLength: number = 1500
+    maxLength: number = 2000
   ): Promise<string> {
     // First get unit-specific manuals
     const unitManuals = await this.searchManualsByUnit(unitInfo);
@@ -217,23 +225,31 @@ export class ManualLibrary {
     }
 
     // Then search within those manuals for relevant content
-    const searchTerms = query.toLowerCase().split(' ');
+    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2); // Filter out short words
     let content = '';
     
     for (const manual of unitManuals.slice(0, 2)) { // Limit to top 2 unit-specific manuals
       const lines = manual.content.split('\n');
-      const relevantLines: string[] = [];
+      const relevantSnippets: string[] = [];
       
-      // Find lines that contain search terms
-      for (const line of lines) {
-        if (searchTerms.some(term => line.toLowerCase().includes(term))) {
-          relevantLines.push(line.trim());
-          if (relevantLines.length >= 5) break; // Limit to 5 relevant lines per manual
+      // Find lines that contain search terms and include surrounding context
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].toLowerCase();
+        if (searchTerms.some(term => line.includes(term))) {
+          // Include the matching line and surrounding context
+          const start = Math.max(0, i - 1);
+          const end = Math.min(lines.length, i + 3);
+          const snippet = lines.slice(start, end).join('\n').trim();
+          
+          if (snippet && !relevantSnippets.includes(snippet)) {
+            relevantSnippets.push(snippet);
+            if (relevantSnippets.length >= 4) break; // Limit to 4 relevant snippets per manual
+          }
         }
       }
       
-      if (relevantLines.length > 0) {
-        content += `\n\n--- ${manual.title} (${manual.unitInfo.brand} ${manual.unitInfo.model}) ---\n${relevantLines.join('\n')}`;
+      if (relevantSnippets.length > 0) {
+        content += `\n\n--- ${manual.title} (${manual.unitInfo.brand} ${manual.unitInfo.model}) ---\n${relevantSnippets.join('\n\n')}`;
         if (content.length > maxLength) {
           content = content.substring(0, maxLength) + '...';
           break;

@@ -34,6 +34,12 @@ MANUAL REFERENCE FORMAT:
 When citing manuals, use this format:
 "According to [Manual Title], Section [X.X], Page [XX]: [Quote specific procedure]"
 
+CRITICAL: When you have access to manual content in the context, you MUST:
+1. Extract and quote the EXACT information from the provided manual content
+2. Include specific measurements, temperatures, voltages, or other technical specifications
+3. Cite the exact manual title and any page/section references available
+4. Do NOT give generic advice when specific manual information is available
+
 For troubleshooting responses, always format as numbered steps:
 1. [Brief diagnostic step title]
    [Specific procedure with measurements, test points, expected values]
@@ -86,10 +92,10 @@ If the provided documents don't contain information for this specific model, cle
       ];
 
       const completion = await this.client.chat.completions.create({
-        model: 'gpt-3.5-turbo', // Faster and cheaper model
+        model: 'gpt-4o-mini', // Better model for technical content
         messages,
-        max_tokens: 500, // Shorter responses for speed
-        temperature: 0.3, // Lower temperature for more focused responses
+        max_tokens: 800, // More tokens for detailed responses
+        temperature: 0.2, // Lower temperature for more focused responses
       });
 
       const response = completion.choices[0]?.message?.content;
@@ -119,10 +125,10 @@ If the provided documents don't contain information for this specific model, cle
       ];
 
       const completion = await this.client.chat.completions.create({
-        model: 'gpt-3.5-turbo', // Faster and cheaper model
+        model: 'gpt-4o-mini', // Better model for technical content
         messages,
-        max_tokens: 400, // Shorter responses for speed
-        temperature: 0.3, // Lower temperature for more focused responses
+        max_tokens: 600, // More tokens for detailed responses
+        temperature: 0.2, // Lower temperature for more focused responses
       });
 
       const response = completion.choices[0]?.message?.content;

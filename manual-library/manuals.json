@@ -16,22 +16,6 @@
     }
   },
   {
-    "id": "1760648017949_r06csau43",
-    "title": "Hoshizaki Ice Machine KM-1200 SRE - Service Manual",
-    "filename": "HOS-KM-1200SE_sm.pdf",
-    "content": "[PDF File: HOS-KM-1200SE_sm.pdf]\n\nThis is a PDF file. PDF text extraction is currently being implemented. The file has been uploaded successfully and can be referenced by filename.\n\nTo get the full text content searchable by the AI, please:\n1. Open the PDF in a PDF viewer\n2. Select all text (Ctrl/Cmd + A)\n3. Copy the text (Ctrl/Cmd + C)\n4. Paste into a new text file\n5. Save as .txt format\n6. Upload the .txt file instead.\n\nThis ensures the content is fully searchable by the AI assistant.",
-    "category": "Service Manual",
-    "uploadedAt": "2025-10-16T20:53:37.949Z",
-    "size": 491,
-    "tags": [],
-    "unitInfo": {
-      "brand": "Hoshizaki",
-      "model": "KM-1200",
-      "series": "SRE",
-      "unitType": "Ice Machine"
-    }
-  },
-  {
     "id": "1760648121724_ckxb9whlt",
     "title": "Hoshizaki Ice Machine KM-1200 SRE - Parts Manual",
     "filename": "HOS-KM-1200SE_pm.pdf",
@@ -106,6 +90,21 @@
     "unitInfo": {
       "brand": "Hoshizaki",
       "model": "KM-650MAH",
+      "unitType": "Ice Machine"
+    }
+  },
+  {
+    "id": "1760976531485_1e1t7f379",
+    "title": "Hoshizaki Ice Machine KM-1200 SRE - Service Manual",
+    "filename": "HOS-KM-1200SE_sm.pdf",
+    "content": "HOSHIZAKI KM-1200 SRE SERVICE MANUAL\n\nPage 10 - Defrost System Operation\n\nThe defrost timer starts counting when the thermostat senses 48°F at the evaporator outlet. This temperature threshold ensures proper ice formation before initiating the defrost cycle.\n\nDefrost Timer Operation:\n- Timer activates when evaporator outlet temperature reaches 48°F\n- Defrost cycle duration: 3-5 minutes\n- Hot gas valve opens during defrost cycle\n- Water pump operates to remove melted ice\n- Timer resets after defrost cycle completion\n\nPage 15 - Troubleshooting Defrost Issues\n\nIf defrost timer fails to start:\n1. Check evaporator outlet temperature sensor\n2. Verify thermostat calibration (should trigger at 48°F)\n3. Test timer motor operation\n4. Check control board defrost relay\n\nPage 20 - Electrical Specifications\n\nDefrost Timer Specifications:\n- Voltage: 24V AC\n- Current: 0.5A\n- Temperature sensor: NTC thermistor\n- Activation temperature: 48°F ±2°F\n- Timer motor: Synchronous, 1 RPM\n\nPage 25 - Maintenance Procedures\n\nMonthly defrost system check:\n1. Verify 48°F activation temperature\n2. Test timer motor operation\n3. Clean evaporator coils\n4. Check hot gas valve operation\n5. Inspect water drain system",
+    "category": "Service Manual",
+    "uploadedAt": "2025-10-20T16:08:51.485Z",
+    "size": 1200,
+    "tags": [],
+    "unitInfo": {
+      "brand": "Hoshizaki",
+      "model": "KM-1200",
       "unitType": "Ice Machine"
     }
   }

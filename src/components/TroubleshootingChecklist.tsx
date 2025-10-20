@@ -23,6 +23,18 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
     // First, try to detect if this looks like a multi-step response
     const hasMultipleSteps = /(\d+\.|\n\s*[-•]|\n\s*\*|\n\s*Step|\n\s*Check|\n\s*Verify)/i.test(text);
     
+    // Check if this is a direct answer (contains "Reference:" or "According to" and is short)
+    const isDirectAnswer = (
+      (text.includes('Reference:') || text.includes('According to')) &&
+      text.length < 500 && // Short response
+      !hasMultipleSteps
+    );
+    
+    if (isDirectAnswer) {
+      // Return empty array to indicate this should be displayed as plain text
+      return [];
+    }
+    
     if (!hasMultipleSteps) {
       // If it doesn't look like multiple steps, return as single item
       return [{
@@ -247,6 +259,15 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
   };
 
   const checklistItems = parseResponse(response);
+
+  // If no checklist items (direct answer), render as plain text
+  if (checklistItems.length === 0) {
+    return (
+      <div className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
+        {response}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

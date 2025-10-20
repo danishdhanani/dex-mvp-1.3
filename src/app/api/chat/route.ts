@@ -4,7 +4,7 @@ import { documentService } from '@/lib/documents';
 
 export async function POST(request: NextRequest) {
   try {
-    const { message } = await request.json();
+    const { message, unitInfo } = await request.json();
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -13,8 +13,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get relevant documents for context
-    const contextDocuments = await documentService.getRelevantContent(message);
+    // Get relevant documents for context (unit-specific if unit info provided)
+    let contextDocuments: string;
+    if (unitInfo && unitInfo.brand && unitInfo.model && unitInfo.unitType) {
+      // Use unit-specific document search
+      contextDocuments = await documentService.getUnitSpecificContent(message, unitInfo);
+    } else {
+      // Use general document search
+      contextDocuments = await documentService.getRelevantContent(message);
+    }
     
     let response: string;
     
@@ -22,8 +29,8 @@ export async function POST(request: NextRequest) {
       // No documents available, generate response without context
       response = await openaiService.generateResponseWithoutContext(message);
     } else {
-      // Generate response with document context
-      response = await openaiService.generateResponse(message, contextDocuments);
+      // Generate response with document context and unit information
+      response = await openaiService.generateResponse(message, contextDocuments, unitInfo);
     }
     
     return NextResponse.json({ 
