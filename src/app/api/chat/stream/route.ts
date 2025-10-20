@@ -45,6 +45,13 @@ export async function POST(request: NextRequest) {
             await new Promise(resolve => setTimeout(resolve, 20));
           }
 
+          // Add source content at the end (hidden by default)
+          if (contextDocuments && !contextDocuments.includes('No relevant documents found')) {
+            controller.enqueue(encoder.encode('\n\n---SOURCE_CONTENT_START---\n'));
+            controller.enqueue(encoder.encode(contextDocuments));
+            controller.enqueue(encoder.encode('\n---SOURCE_CONTENT_END---'));
+          }
+
           controller.close();
         } catch (error) {
           console.error('Streaming error:', error);

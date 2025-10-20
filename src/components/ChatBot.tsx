@@ -9,6 +9,7 @@ interface Message {
   isUser: boolean;
   timestamp: Date;
   isComplete?: boolean; // Track if the message is fully loaded
+  sourceContent?: string; // Source material used for the response
 }
 
 export default function ChatBot() {
@@ -170,10 +171,15 @@ export default function ChatBot() {
         fullResponse += chunk;
       }
 
+      // Parse source content from response
+      const sourceContentMatch = fullResponse.match(/---SOURCE_CONTENT_START---\n([\s\S]*?)\n---SOURCE_CONTENT_END---/);
+      const sourceContent = sourceContentMatch ? sourceContentMatch[1] : undefined;
+      const cleanResponse = fullResponse.replace(/---SOURCE_CONTENT_START---\n[\s\S]*?\n---SOURCE_CONTENT_END---/, '').trim();
+
       // Update the bot message with the complete response
       setMessages(prev => prev.map(msg => 
         msg.id === botMessageId 
-          ? { ...msg, text: fullResponse || 'Sorry, I couldn\'t find relevant information.', isComplete: true }
+          ? { ...msg, text: cleanResponse || 'Sorry, I couldn\'t find relevant information.', isComplete: true, sourceContent }
           : msg
       ));
 
@@ -484,7 +490,7 @@ export default function ChatBot() {
                       {message.text}
                     </p>
                   ) : message.isComplete ? (
-                    <TroubleshootingChecklist response={message.text} />
+                    <TroubleshootingChecklist response={message.text} sourceContent={message.sourceContent} />
                   ) : (
                     <div className="flex items-center space-x-2 sm:space-x-3">
                       <div className="flex space-x-1">

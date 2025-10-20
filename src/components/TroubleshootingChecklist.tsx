@@ -9,11 +9,13 @@ interface ChecklistItem {
 
 interface TroubleshootingChecklistProps {
   response: string;
+  sourceContent?: string; // Optional source content to display
 }
 
-export default function TroubleshootingChecklist({ response }: TroubleshootingChecklistProps) {
+export default function TroubleshootingChecklist({ response, sourceContent }: TroubleshootingChecklistProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
+  const [showSource, setShowSource] = useState(false);
 
   // Parse the response to extract steps
   const parseResponse = (text: string): ChecklistItem[] => {
@@ -293,7 +295,26 @@ export default function TroubleshootingChecklist({ response }: TroubleshootingCh
 
   return (
     <div className="space-y-3">
-      <div className="text-blue-400 text-xs mb-2">📋 Checklist Format</div>
+      <div className="flex justify-between items-center">
+        <div className="text-blue-400 text-xs">📋 Checklist Format</div>
+        {sourceContent && (
+          <button
+            onClick={() => setShowSource(!showSource)}
+            className="text-xs text-blue-400 hover:text-blue-300 underline"
+          >
+            {showSource ? 'Hide Source' : 'View Source'}
+          </button>
+        )}
+      </div>
+      
+      {showSource && sourceContent && (
+        <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-xs">
+          <div className="text-gray-400 mb-2">📖 Source Material Used:</div>
+          <pre className="whitespace-pre-wrap text-gray-300 font-mono text-xs leading-relaxed">
+            {sourceContent}
+          </pre>
+        </div>
+      )}
       {checklistItems.map((item) => (
         <div
           key={item.id}
