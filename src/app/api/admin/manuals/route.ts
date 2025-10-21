@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { manualLibrary } from '@/lib/manual-library';
 
+// Configure body size limit for this route
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 // GET /api/admin/manuals - List all manuals
 export async function GET() {
   try {
@@ -40,10 +49,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate content length (max 5MB of text)
-    if (content.length > 5 * 1024 * 1024) {
+    // Validate content length (max 10MB of text)
+    if (content.length > 10 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'File content too large. Please upload files smaller than 5MB.' },
+        { error: 'File content too large. Please upload files smaller than 10MB.' },
         { status: 400 }
       );
     }

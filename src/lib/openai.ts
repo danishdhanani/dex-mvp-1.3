@@ -216,7 +216,7 @@ If the provided documents don't contain information for this specific model, cle
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         {
           role: 'system',
-          content: this.systemPrompt + '\n\nNote: You do not have access to specific manual documents for this query. Provide general HVAC/R guidance and suggest that the user upload relevant manuals for more specific information.'
+          content: this.systemPrompt + '\n\nIMPORTANT: You do not have access to specific manual documents for this query. Provide general HVAC/R guidance based on industry best practices and standard troubleshooting procedures. DO NOT use any source attribution (no "*Source:" or "*Inferred from" references) since no specific manuals are available. Instead, suggest that the user upload relevant manuals for more specific information.'
         }
       ];
 

@@ -10,15 +10,9 @@ export async function POST(request: NextRequest) {
       return new Response('Message is required', { status: 400 });
     }
 
-    // Get relevant documents for context (unit-specific if unit info provided)
-    let contextDocuments: string;
-    if (unitInfo && unitInfo.brand && unitInfo.model && unitInfo.unitType) {
-      // Use unit-specific document search
-      contextDocuments = await documentService.getUnitSpecificContent(message, unitInfo);
-    } else {
-      // Use general document search
-      contextDocuments = await documentService.getRelevantContent(message);
-    }
+    // Check if unit info is provided and complete (brand and model must be non-empty)
+    const hasCompleteUnitInfo = unitInfo && unitInfo.brand && unitInfo.model && unitInfo.unitType && 
+                                unitInfo.brand.trim() !== '' && unitInfo.model.trim() !== '';
     
     // Create streaming response
     const encoder = new TextEncoder();
@@ -27,12 +21,20 @@ export async function POST(request: NextRequest) {
         try {
           let response: string;
           
-          if (contextDocuments.includes('No relevant documents found')) {
-            // No documents available, generate response without context
-            response = await openaiService.generateResponseWithoutContext(message, conversationHistory);
+          if (hasCompleteUnitInfo) {
+            // Get unit-specific documents for context
+            const contextDocuments = await documentService.getUnitSpecificContent(message, unitInfo);
+            
+            if (contextDocuments.includes('No manuals found') || contextDocuments.includes('No relevant content found')) {
+              // No unit-specific documents available, generate general response
+              response = await openaiService.generateResponseWithoutContext(message, conversationHistory);
+            } else {
+              // Generate response with unit-specific document context
+              response = await openaiService.generateResponse(message, contextDocuments, unitInfo, conversationHistory);
+            }
           } else {
-            // Generate response with document context and unit information
-            response = await openaiService.generateResponse(message, contextDocuments, unitInfo, conversationHistory);
+            // No unit info provided - generate general HVAC/R response without manual content
+            response = await openaiService.generateResponseWithoutContext(message, conversationHistory);
           }
 
           // Stream the response word by word
@@ -45,10 +47,13 @@ export async function POST(request: NextRequest) {
             await new Promise(resolve => setTimeout(resolve, 20));
           }
 
-          // Add source content at the end (hidden by default)
-          if (contextDocuments && !contextDocuments.includes('No relevant documents found')) {
+          // Add source content at the end (hidden by default) - only for unit-specific responses
+          if (hasCompleteUnitInfo && (response.includes('*Source:') || response.includes('*Inferred from'))) {
             controller.enqueue(encoder.encode('\n\n---SOURCE_CONTENT_START---\n'));
-            controller.enqueue(encoder.encode(contextDocuments));
+            if (hasCompleteUnitInfo) {
+              const contextDocuments = await documentService.getUnitSpecificContent(message, unitInfo);
+              controller.enqueue(encoder.encode(contextDocuments));
+            }
             controller.enqueue(encoder.encode('\n---SOURCE_CONTENT_END---'));
           }
 

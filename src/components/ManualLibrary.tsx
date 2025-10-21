@@ -105,9 +105,9 @@ export default function ManualLibrary() {
       return;
     }
 
-    // Validate file size (5MB limit)
-    if (uploadForm.file.size > 5 * 1024 * 1024) {
-      alert('File too large. Please upload files smaller than 5MB.');
+    // Validate file size (10MB limit)
+    if (uploadForm.file.size > 10 * 1024 * 1024) {
+      alert('File too large. Please upload files smaller than 10MB.');
       return;
     }
 
