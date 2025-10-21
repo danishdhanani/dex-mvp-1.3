@@ -12,11 +12,28 @@ interface Message {
   sourceContent?: string; // Source material used for the response
 }
 
-export default function ChatBot() {
+interface ChatBotProps {
+  unitType?: string;
+}
+
+export default function ChatBot({ unitType }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Update selectedUnit when unitType prop changes
+  useEffect(() => {
+    if (unitType) {
+      setSelectedUnit(prev => ({
+        brand: prev?.brand || '',
+        model: prev?.model || '',
+        series: prev?.series || '',
+        yearRange: prev?.yearRange || '',
+        unitType: unitType
+      }));
+    }
+  }, [unitType]);
   
   // Unit selection state
   const [selectedUnit, setSelectedUnit] = useState<{
@@ -25,7 +42,7 @@ export default function ChatBot() {
     series?: string;
     yearRange?: string;
     unitType: string;
-  } | null>(null);
+  } | null>(unitType ? { brand: '', model: '', unitType: unitType } : null);
   const [showUnitSelector, setShowUnitSelector] = useState(false);
   
   // Input mode state (simplified for now)

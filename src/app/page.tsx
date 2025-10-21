@@ -28,8 +28,8 @@ export default function Home() {
             </svg>
           </div>
           <h1 className="text-sm sm:text-lg lg:text-xl font-semibold text-white">
-            {selectedUnitType === 'ice-machine' ? (
-              <span className="hidden sm:inline">Dex - Ice Machine Troubleshooter</span>
+            {selectedUnitType ? (
+              <span className="hidden sm:inline">Dex - HVAC/R Troubleshooter</span>
             ) : (
               <span className="hidden sm:inline">Dex Service Copilot</span>
             )}
@@ -61,8 +61,8 @@ export default function Home() {
       </div>
       
       {/* Main Content */}
-      {selectedUnitType === 'ice-machine' ? (
-        <ChatBot />
+      {selectedUnitType ? (
+        <ChatBot unitType={selectedUnitType} />
       ) : (
         <UnitTypeSelector onUnitTypeSelect={handleUnitTypeSelect} />
       )}
