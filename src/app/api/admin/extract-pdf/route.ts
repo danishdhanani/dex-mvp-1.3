@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
         });
         
              } catch (pdf2jsonError) {
+               // Handle TypeScript error properly
                console.log('pdf2json failed, trying pdfreader...', pdf2jsonError instanceof Error ? pdf2jsonError.message : String(pdf2jsonError));
         
         // Method 2: Try pdfreader as fallback
