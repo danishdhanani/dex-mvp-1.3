@@ -11,7 +11,7 @@ export default function UnitTypeSelector({ onUnitTypeSelect }: UnitTypeSelectorP
       name: 'RTU',
       fullName: 'Roof Top Unit',
       description: 'Commercial rooftop HVAC systems',
-      available: false,
+      available: true,
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -25,7 +25,7 @@ export default function UnitTypeSelector({ onUnitTypeSelect }: UnitTypeSelectorP
       name: 'Split Unit',
       fullName: 'Split System',
       description: 'Residential and light commercial HVAC',
-      available: false,
+      available: true,
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
           <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
@@ -41,7 +41,7 @@ export default function UnitTypeSelector({ onUnitTypeSelect }: UnitTypeSelectorP
       name: 'Reach-in Cooler/Freezer',
       fullName: 'Reach-in Refrigeration',
       description: 'Commercial reach-in refrigeration units',
-      available: false,
+      available: true,
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -58,7 +58,7 @@ export default function UnitTypeSelector({ onUnitTypeSelect }: UnitTypeSelectorP
       name: 'Walk-in Cooler/Freezer',
       fullName: 'Walk-in Refrigeration',
       description: 'Large commercial walk-in refrigeration',
-      available: false,
+      available: true,
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -169,7 +169,7 @@ export default function UnitTypeSelector({ onUnitTypeSelect }: UnitTypeSelectorP
           {/* Footer Info */}
           <div className="mt-6 sm:mt-12 text-center">
             <p className="text-gray-500 text-xs sm:text-sm">
-              More equipment types coming soon. Currently supporting Ice Machine troubleshooting.
+              Supporting all major HVAC/R equipment types. Upload your service manuals to get started.
             </p>
           </div>
         </div>

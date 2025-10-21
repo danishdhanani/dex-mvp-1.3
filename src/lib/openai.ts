@@ -133,6 +133,44 @@ PRIORITIZE unit-specific information from the provided manuals. When available, 
 - Exact test points and expected readings (only if provided in context)
 
 If the provided documents don't contain information for this specific model, clearly state what information is missing and provide the most relevant general procedures while noting the limitations.`;
+
+        // Add equipment-specific guidance
+        if (unitInfo.unitType === 'RTU' || unitInfo.unitType === 'Roof Top Unit') {
+          systemPrompt += `\n\nRTU-SPECIFIC GUIDANCE:
+- Focus on rooftop unit diagnostics: economizer operation, gas/electric heating systems, outdoor unit troubleshooting
+- Common RTU issues: economizer dampers, gas valve operation, heat exchanger problems, outdoor unit communication
+- Key diagnostic areas: supply/return air temperatures, economizer position, gas pressure, electrical connections
+- Safety considerations: gas leaks, electrical hazards, rooftop access safety
+- Typical components: economizer, gas valve, heat exchanger, outdoor fan motor, control board`;
+        } else if (unitInfo.unitType === 'Split Unit' || unitInfo.unitType === 'Split System') {
+          systemPrompt += `\n\nSPLIT UNIT GUIDANCE:
+- Focus on indoor/outdoor unit communication, refrigerant issues, and residential/light commercial troubleshooting
+- Common split unit issues: refrigerant leaks, compressor problems, indoor/outdoor communication failures, thermostat issues
+- Key diagnostic areas: refrigerant pressures, compressor operation, indoor/outdoor unit communication, airflow
+- Typical components: indoor unit (evaporator), outdoor unit (condenser), refrigerant lines, thermostat, control board
+- Refrigerant handling: proper recovery procedures, leak detection, pressure testing`;
+        } else if (unitInfo.unitType === 'Reach-in' || unitInfo.unitType === 'Reach-in Cooler/Freezer') {
+          systemPrompt += `\n\nREACH-IN REFRIGERATION GUIDANCE:
+- Focus on commercial reach-in refrigeration diagnostics: temperature control, defrost systems, door seals
+- Common reach-in issues: temperature fluctuations, defrost problems, door seal failures, compressor issues
+- Key diagnostic areas: box temperature, evaporator operation, defrost cycle, door seals, refrigerant pressures
+- Typical components: evaporator, condenser, defrost heater, temperature controller, door gaskets
+- Temperature control: proper defrost timing, temperature sensor calibration, door seal integrity`;
+        } else if (unitInfo.unitType === 'Walk-in' || unitInfo.unitType === 'Walk-in Cooler/Freezer') {
+          systemPrompt += `\n\nWALK-IN REFRIGERATION GUIDANCE:
+- Focus on large commercial walk-in refrigeration: evaporator fans, door heaters, defrost systems, insulation
+- Common walk-in issues: evaporator fan problems, door heater failures, defrost timer issues, insulation problems
+- Key diagnostic areas: evaporator fan operation, door heater function, defrost cycle timing, box temperature uniformity
+- Typical components: evaporator fans, door heaters, defrost timer, temperature controller, insulation
+- Large system considerations: multiple evaporators, zone control, defrost scheduling, energy efficiency`;
+        } else if (unitInfo.unitType === 'Ice Machine') {
+          systemPrompt += `\n\nICE MACHINE GUIDANCE:
+- Focus on commercial ice making equipment: water systems, harvest cycles, refrigeration systems
+- Common ice machine issues: water flow problems, harvest cycle failures, refrigeration issues, scale buildup
+- Key diagnostic areas: water supply, harvest cycle timing, refrigeration pressures, ice production
+- Typical components: water valve, harvest valve, refrigeration system, control board, ice thickness sensor
+- Water quality: scale prevention, water filtration, proper water pressure requirements`;
+        }
       }
 
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
