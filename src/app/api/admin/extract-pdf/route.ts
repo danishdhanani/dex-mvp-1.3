@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
           firstChars: text.substring(0, 100)
         });
         
-      } catch (pdf2jsonError) {
-        console.log('pdf2json failed, trying pdfreader...', pdf2jsonError.message);
+             } catch (pdf2jsonError) {
+               console.log('pdf2json failed, trying pdfreader...', pdf2jsonError instanceof Error ? pdf2jsonError.message : String(pdf2jsonError));
         
         // Method 2: Try pdfreader as fallback
         const { PdfReader } = require('pdfreader');
