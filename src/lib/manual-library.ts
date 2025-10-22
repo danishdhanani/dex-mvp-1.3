@@ -17,7 +17,7 @@ export interface Manual {
     model: string;           // e.g., "KM-1200 SRE", "iT1200 Indigo"
     series?: string;         // e.g., "SRE Series", "Indigo Series"
     yearRange?: string;      // e.g., "2020-2024", "2018+"
-    unitType: string;        // e.g., "Ice Machine", "Refrigerator", "Freezer"
+    unitType: string;        // e.g., "Ice Machine", "reach-in", "walk-in"
   };
 }
 
