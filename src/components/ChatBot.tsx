@@ -575,16 +575,14 @@ export default function ChatBot({ unitType }: ChatBotProps) {
             <button
               onClick={() => {
                 if (!showUnitSelector) {
-                  // Opening modal - ensure unit type is initialized
-                  if (!selectedUnit?.unitType) {
-                    setSelectedUnit(prev => ({ 
-                      brand: prev?.brand || '', 
-                      model: prev?.model || '', 
-                      series: prev?.series || '', 
-                      yearRange: prev?.yearRange || '', 
-                      unitType: 'Ice Machine' 
-                    }));
-                  }
+                  // Opening modal - ensure unit type is initialized based on current troubleshooter
+                  setSelectedUnit(prev => ({ 
+                    brand: prev?.brand || '', 
+                    model: prev?.model || '', 
+                    series: prev?.series || '', 
+                    yearRange: prev?.yearRange || '', 
+                    unitType: unitType || prev?.unitType || 'ice-machine' 
+                  }));
                   // Clear manual availability when opening to change unit
                   setManualAvailability(null);
                 }
@@ -661,16 +659,14 @@ export default function ChatBot({ unitType }: ChatBotProps) {
                 <button
                   onClick={() => {
                     setInputMode('manual');
-                    // Ensure unit type is set when switching modes
-                    if (!selectedUnit?.unitType) {
-                      setSelectedUnit(prev => ({ 
-                        brand: prev?.brand || '', 
-                        model: prev?.model || '', 
-                        series: prev?.series || '', 
-                        yearRange: prev?.yearRange || '', 
-                        unitType: 'Ice Machine' 
-                      }));
-                    }
+                    // Ensure unit type is set when switching modes based on current troubleshooter
+                    setSelectedUnit(prev => ({ 
+                      brand: prev?.brand || '', 
+                      model: prev?.model || '', 
+                      series: prev?.series || '', 
+                      yearRange: prev?.yearRange || '', 
+                      unitType: unitType || prev?.unitType || 'ice-machine' 
+                    }));
                   }}
                   className={`flex-1 py-1.5 px-2 sm:py-2 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                     inputMode === 'manual'
@@ -765,29 +761,39 @@ export default function ChatBot({ unitType }: ChatBotProps) {
               </div>
               
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Unit Type *</label>
-                <select
-                  value={selectedUnit?.unitType || 'Ice Machine'}
-                  onChange={(e) => setSelectedUnit(prev => ({ 
-                    brand: prev?.brand || '', 
-                    model: prev?.model || '', 
-                    series: prev?.series || '', 
-                    yearRange: prev?.yearRange || '', 
-                    unitType: e.target.value || 'Ice Machine' 
-                  }))}
-                  className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                >
-                  <option value="Ice Machine">Ice Machine</option>
-                  <option value="Refrigerator">Refrigerator</option>
-                  <option value="Freezer">Freezer</option>
-                  <option value="Walk-in Cooler">Walk-in Cooler</option>
-                  <option value="Walk-in Freezer">Walk-in Freezer</option>
-                  <option value="HVAC System">HVAC System</option>
-                  <option value="Heat Pump">Heat Pump</option>
-                  <option value="Air Handler">Air Handler</option>
-                  <option value="Condensing Unit">Condensing Unit</option>
-                  <option value="Other">Other</option>
-                </select>
+                <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">
+                  Unit Type {unitType ? '(Pre-selected)' : '*'}
+                </label>
+                {unitType ? (
+                  // Show read-only unit type when on specific troubleshooter page
+                  <div className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-gray-600 border border-gray-500 rounded-lg text-gray-300 text-sm sm:text-base flex items-center">
+                    <span className="flex-1">{getEquipmentTypeName(unitType)}</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400">
+                      <path d="M9 12l2 2 4-4"/>
+                      <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3"/>
+                      <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"/>
+                    </svg>
+                  </div>
+                ) : (
+                  // Show dropdown when on general page
+                  <select
+                    value={selectedUnit?.unitType || 'ice-machine'}
+                    onChange={(e) => setSelectedUnit(prev => ({ 
+                      brand: prev?.brand || '', 
+                      model: prev?.model || '', 
+                      series: prev?.series || '', 
+                      yearRange: prev?.yearRange || '', 
+                      unitType: e.target.value || 'ice-machine' 
+                    }))}
+                    className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                  >
+                    <option value="ice-machine">Ice Machine</option>
+                    <option value="rtu">RTU (Roof Top Unit)</option>
+                    <option value="split-unit">Split Unit</option>
+                    <option value="reach-in">Reach-in Cooler/Freezer</option>
+                    <option value="walk-in">Walk-in Cooler/Freezer</option>
+                  </select>
+                )}
               </div>
             </div>
             
