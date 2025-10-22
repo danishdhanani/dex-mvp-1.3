@@ -418,7 +418,20 @@ export default function ChatBot({ unitType }: ChatBotProps) {
         const matchingManuals = manuals.filter((manual: any) => {
           const brandMatch = manual.unitInfo?.brand?.toLowerCase() === unitInfo.brand.toLowerCase();
           const modelMatch = manual.unitInfo?.model?.toLowerCase() === unitInfo.model.toLowerCase();
-          const typeMatch = manual.unitInfo?.unitType?.toLowerCase() === unitInfo.unitType.toLowerCase();
+          
+          // More flexible type matching - allow cross-compatibility for commercial equipment
+          const manualType = manual.unitInfo?.unitType?.toLowerCase();
+          const currentType = unitInfo.unitType.toLowerCase();
+          
+          // Direct match
+          const directTypeMatch = manualType === currentType;
+          
+          // Cross-compatibility rules for commercial refrigeration equipment
+          const isCommercialEquipment = ['ice-machine', 'reach-in', 'walk-in'].includes(currentType);
+          const isCommercialManual = ['ice machine', 'reach-in', 'walk-in'].includes(manualType);
+          const crossCompatible = isCommercialEquipment && isCommercialManual;
+          
+          const typeMatch = directTypeMatch || crossCompatible;
           
           return brandMatch && modelMatch && typeMatch;
         });
