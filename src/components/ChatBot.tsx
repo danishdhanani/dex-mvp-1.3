@@ -932,12 +932,23 @@ export default function ChatBot({ unitType }: ChatBotProps) {
         <div className="max-w-3xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
           <form onSubmit={handleSubmit} className="relative">
             <div className="flex items-end space-x-2 sm:space-x-3">
+              {/* Plus/Attach button on the left */}
+              <button
+                type="button"
+                className="bg-gray-700 hover:bg-gray-600 text-white p-3 sm:p-4 rounded-lg transition-colors flex-shrink-0"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-6 sm:h-6">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              </button>
+              
+              {/* Input area */}
               <div className="flex-1 relative">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Describe your ice machine issue..."
-                  className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-3 py-2 sm:px-4 sm:py-3 pr-10 sm:pr-12 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 border border-gray-600 min-h-[44px] sm:min-h-[52px] max-h-32 text-sm sm:text-base"
+                  className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-3 py-2 sm:px-4 sm:py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 border border-gray-600 min-h-[44px] sm:min-h-[52px] max-h-32 text-sm sm:text-base"
                   rows={1}
                   disabled={isLoading}
                   onKeyDown={(e) => {
@@ -947,21 +958,15 @@ export default function ChatBot({ unitType }: ChatBotProps) {
                     }
                   }}
                 />
-                <button
-                  type="button"
-                  className="absolute right-2 top-2 sm:right-3 sm:top-3 p-1 text-gray-400 hover:text-white transition-colors"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-5 sm:h-5">
-                    <path d="M12 5v14M5 12h14"/>
-                  </svg>
-                </button>
               </div>
+              
+              {/* Send button - made bigger */}
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white p-2 sm:p-3 rounded-lg transition-colors"
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white p-3 sm:p-4 rounded-lg transition-colors flex-shrink-0"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-5 sm:h-5">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-6 sm:h-6">
                   <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                 </svg>
               </button>
