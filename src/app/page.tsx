@@ -47,6 +47,14 @@ export default function Home() {
             </button>
           )}
           <a 
+            href="/troubleshooting"
+            className="px-2 py-1 sm:px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm rounded-lg transition-colors"
+            title="New Troubleshooting UI"
+          >
+            <span className="hidden sm:inline">New Troubleshooting</span>
+            <span className="sm:hidden">Troubleshoot</span>
+          </a>
+          <a 
             href="/admin"
             className="p-1.5 sm:p-2 text-gray-400 hover:text-white transition-colors"
             title="Admin Portal"
