@@ -26,11 +26,30 @@ export default function PMSummaryPage() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Initialize job number from URL or localStorage
   useEffect(() => {
     const jobNum = searchParams.get('jobNumber') || '';
-    const unitCountsJson = searchParams.get('unitCounts') || '{}';
     
-    setJobNumber(jobNum);
+    if (jobNum) {
+      setJobNumber(jobNum);
+      localStorage.setItem('pm-current-job-number', jobNum);
+    } else {
+      const storedJobNumber = localStorage.getItem('pm-current-job-number');
+      if (storedJobNumber) {
+        setJobNumber(storedJobNumber);
+      } else {
+        const newJobNumber = Math.floor(1000 + Math.random() * 9000).toString();
+        setJobNumber(newJobNumber);
+        localStorage.setItem('pm-current-job-number', newJobNumber);
+      }
+    }
+  }, [searchParams]);
+
+  // Load or generate units
+  useEffect(() => {
+    if (!jobNumber) return; // Wait for jobNumber to be set
+    
+    const unitCountsJson = searchParams.get('unitCounts') || '{}';
     
     try {
       const unitCounts: UnitCounts = JSON.parse(decodeURIComponent(unitCountsJson));
@@ -48,11 +67,32 @@ export default function PMSummaryPage() {
         }
       });
       
-      setUnits(generatedUnits);
+      // If we have units from URL, use them, otherwise check localStorage
+      if (generatedUnits.length > 0) {
+        setUnits(generatedUnits);
+        localStorage.setItem(`pm-units-${jobNumber}`, JSON.stringify(generatedUnits));
+      } else {
+        // Try to load from localStorage
+        const storedUnits = localStorage.getItem(`pm-units-${jobNumber}`);
+        if (storedUnits) {
+          setUnits(JSON.parse(storedUnits));
+        }
+      }
     } catch (error) {
-      console.error('Error parsing unit counts:', error);
+      // If parsing fails, try to load from localStorage
+      const storedUnits = localStorage.getItem(`pm-units-${jobNumber}`);
+      if (storedUnits) {
+        try {
+          setUnits(JSON.parse(storedUnits));
+        } catch (e) {
+          console.error('Error loading units:', e);
+          setUnits([]);
+        }
+      } else {
+        setUnits([]);
+      }
     }
-  }, [searchParams, refreshKey]);
+  }, [searchParams, jobNumber, refreshKey]);
 
   // Listen for storage events to refresh progress
   useEffect(() => {
@@ -125,7 +165,12 @@ export default function PMSummaryPage() {
   };
 
   const deleteUnit = (id: string) => {
-    setUnits(prev => prev.filter(u => u.id !== id));
+    setUnits(prev => {
+      const updated = prev.filter(u => u.id !== id);
+      // Save to localStorage
+      localStorage.setItem(`pm-units-${jobNumber}`, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const addUnit = (type: keyof UnitCounts) => {
@@ -136,7 +181,12 @@ export default function PMSummaryPage() {
       type,
       name: formatUnitName(type, newIndex)
     };
-    setUnits(prev => [...prev, newUnit]);
+    setUnits(prev => {
+      const updated = [...prev, newUnit];
+      // Save to localStorage
+      localStorage.setItem(`pm-units-${jobNumber}`, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const unitTypeInfo = [
@@ -155,7 +205,7 @@ export default function PMSummaryPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => router.push('/pm')}
+                onClick={() => router.push('/job-type')}
                 className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
@@ -182,6 +232,13 @@ export default function PMSummaryPage() {
         {unitTypeInfo.map((typeInfo) => {
           const typeUnits = getUnitsByType(typeInfo.key);
           
+          // Count how many units of this type have been completed (all sections done)
+          const completedUnits = typeUnits.filter(unit => {
+            const totalSteps = getTotalSteps(unit.type);
+            const completedSteps = getCompletedSteps(unit);
+            return completedSteps === totalSteps && totalSteps > 0;
+          }).length;
+          
           return (
             <div key={typeInfo.key} className="mb-6">
               {/* Section Header */}
@@ -191,7 +248,7 @@ export default function PMSummaryPage() {
                     {typeInfo.label}
                   </h2>
                   <span className="bg-gray-700 text-gray-300 px-3 py-1 rounded-full text-sm font-medium">
-                    {typeUnits.length}/{units.length}
+                    {completedUnits}/{typeUnits.length}
                   </span>
                 </div>
               </div>
@@ -269,27 +326,6 @@ export default function PMSummaryPage() {
             <p className="text-gray-500">No units added yet</p>
           </div>
         )}
-      </div>
-
-      {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col space-y-4">
-        <button
-          className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
-          title="Chat"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-        </button>
-        <button
-          className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
-          title="Camera"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-        </button>
       </div>
     </div>
   );

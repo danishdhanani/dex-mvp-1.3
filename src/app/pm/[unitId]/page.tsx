@@ -10,7 +10,9 @@ interface ChecklistItem {
     id: string;
     text: string;
     checked: boolean;
+    status?: 'red' | 'yellow' | 'green' | 'na' | 'unchecked';
     notes?: string;
+    images?: string[]; // Array of base64 image strings
   }[];
 }
 
@@ -20,10 +22,11 @@ interface PMChecklist {
   sections: ChecklistItem[];
 }
 
-export default function PMChecklistPage({ params }: { params: { unitId: string } }) {
+export default function PMChecklistPage({ params }: { params: Promise<{ unitId: string }> }) {
   const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [checklist, setChecklist] = useState<PMChecklist>(getDefaultChecklist(params.unitId));
+  const [unitId, setUnitId] = useState<string>('');
+  const [checklist, setChecklist] = useState<PMChecklist | null>(null);
   const [currentSection, setCurrentSection] = useState(1); // Current section (1-8)
   const [readings, setReadings] = useState({
     gasPressure: '',
@@ -32,9 +35,18 @@ export default function PMChecklistPage({ params }: { params: { unitId: string }
     additionalRepairs: '',
   });
 
+  // Resolve params promise
+  useEffect(() => {
+    params.then((resolved) => {
+      setUnitId(resolved.unitId);
+      setChecklist(getDefaultChecklist(resolved.unitId));
+    });
+  }, [params]);
+
   // Load saved progress from localStorage on mount
   useEffect(() => {
-    const savedData = localStorage.getItem(`pm-checklist-${params.unitId}`);
+    if (!unitId) return;
+    const savedData = localStorage.getItem(`pm-checklist-${unitId}`);
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
@@ -48,50 +60,143 @@ export default function PMChecklistPage({ params }: { params: { unitId: string }
         console.error('Error loading saved progress:', error);
       }
     }
-  }, [params.unitId]);
+  }, [unitId]);
 
   // Save progress to localStorage whenever checklist or readings change
   useEffect(() => {
+    if (!unitId || !checklist) return;
     const dataToSave = {
       sections: checklist.sections,
       readings: readings
     };
-    localStorage.setItem(`pm-checklist-${params.unitId}`, JSON.stringify(dataToSave));
-  }, [checklist, readings, params.unitId]);
+    localStorage.setItem(`pm-checklist-${unitId}`, JSON.stringify(dataToSave));
+  }, [checklist, readings, unitId]);
 
   const toggleItem = (sectionId: string, itemId: string) => {
-    setChecklist(prev => ({
-      ...prev,
-      sections: prev.sections.map(section =>
-        section.id === sectionId
-          ? {
-              ...section,
-              items: section.items.map(item =>
-                item.id === itemId ? { ...item, checked: !item.checked } : item
-              )
-            }
-          : section
-      )
-    }));
+    if (!checklist) return;
+    setChecklist(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sections: prev.sections.map(section =>
+          section.id === sectionId
+            ? {
+                ...section,
+                items: section.items.map(item => {
+                  if (item.id === itemId) {
+                    // Cycle through: unchecked -> red -> yellow -> green -> na -> unchecked
+                    const currentStatus = item.status || 'unchecked';
+                    const statusOrder = ['unchecked', 'red', 'yellow', 'green', 'na'];
+                    const currentIndex = statusOrder.indexOf(currentStatus);
+                    const nextIndex = (currentIndex + 1) % statusOrder.length;
+                    const nextStatus = statusOrder[nextIndex];
+                    
+                    return {
+                      ...item,
+                      checked: nextStatus !== 'unchecked',
+                      status: nextStatus === 'unchecked' ? undefined : nextStatus as 'red' | 'yellow' | 'green' | 'na'
+                    };
+                  }
+                  return item;
+                })
+              }
+            : section
+        )
+      };
+    });
   };
 
   const updateNotes = (sectionId: string, itemId: string, notes: string) => {
-    setChecklist(prev => ({
-      ...prev,
-      sections: prev.sections.map(section =>
-        section.id === sectionId
-          ? {
-              ...section,
-              items: section.items.map(item =>
-                item.id === itemId ? { ...item, notes } : item
-              )
-            }
-          : section
-      )
-    }));
+    if (!checklist) return;
+    setChecklist(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sections: prev.sections.map(section =>
+          section.id === sectionId
+            ? {
+                ...section,
+                items: section.items.map(item =>
+                  item.id === itemId ? { ...item, notes } : item
+                )
+              }
+            : section
+        )
+      };
+    });
+  };
+
+  const handleImageUpload = (sectionId: string, itemId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !checklist) return;
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB');
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64String = e.target?.result as string;
+      setChecklist(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          sections: prev.sections.map(section =>
+            section.id === sectionId
+              ? {
+                  ...section,
+                  items: section.items.map(item =>
+                    item.id === itemId 
+                      ? { 
+                          ...item, 
+                          images: [...(item.images || []), base64String] 
+                        } 
+                      : item
+                  )
+                }
+              : section
+          )
+        };
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = (sectionId: string, itemId: string, imageIndex: number) => {
+    if (!checklist) return;
+    setChecklist(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sections: prev.sections.map(section =>
+          section.id === sectionId
+            ? {
+                ...section,
+                items: section.items.map(item =>
+                  item.id === itemId 
+                    ? { 
+                        ...item, 
+                        images: item.images?.filter((_, index) => index !== imageIndex) || []
+                      } 
+                    : item
+                )
+              }
+            : section
+        )
+      };
+    });
   };
 
   const getProgress = () => {
+    if (!checklist) return { checkedItems: 0, totalItems: 0, percentage: 0 };
     const totalItems = checklist.sections.reduce((sum, section) => sum + section.items.length, 0);
     const checkedItems = checklist.sections.reduce(
       (sum, section) => sum + section.items.filter(item => item.checked).length,
@@ -101,12 +206,14 @@ export default function PMChecklistPage({ params }: { params: { unitId: string }
   };
 
   const goToSection = (sectionNumber: number) => {
+    if (!checklist) return;
     if (sectionNumber >= 1 && sectionNumber <= checklist.sections.length) {
       setCurrentSection(sectionNumber);
     }
   };
 
   const goToNextSection = () => {
+    if (!checklist) return;
     if (currentSection < checklist.sections.length) {
       setCurrentSection(currentSection + 1);
     }
@@ -118,21 +225,37 @@ export default function PMChecklistPage({ params }: { params: { unitId: string }
     }
   };
 
-  const progress = getProgress();
-  const currentSectionData = checklist.sections[currentSection - 1];
-
-  // Calculate total timeline width (8 balls + gaps)
-  const timelineWidth = (8 * 50) + (7 * 24) + 20; // 8 balls @ 50px + 7 gaps @ 24px + padding
-
   // Auto-scroll to active section
   useEffect(() => {
-    if (scrollContainerRef.current) {
+    if (scrollContainerRef.current && checklist) {
       const activeButton = scrollContainerRef.current.querySelector(`[data-section="${currentSection}"]`);
       if (activeButton) {
         activeButton.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
     }
-  }, [currentSection]);
+  }, [currentSection, checklist]);
+
+  const progress = getProgress();
+  const currentSectionData = checklist?.sections[currentSection - 1];
+
+  // Show loading state while params are resolving
+  if (!checklist || !currentSectionData) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-white">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2"/>
+            </svg>
+          </div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate total timeline width (8 balls + gaps)
+  const timelineWidth = (8 * 50) + (7 * 24) + 20; // 8 balls @ 50px + 7 gaps @ 24px + padding
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -312,17 +435,23 @@ export default function PMChecklistPage({ params }: { params: { unitId: string }
                     <div className="flex items-start space-x-3">
                       <button
                         onClick={() => toggleItem(currentSectionData.id, item.id)}
-                        className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
-                          item.checked
-                            ? 'bg-blue-600 border-blue-600 text-white'
-                            : 'border-gray-600 hover:border-gray-500'
+                        className={`flex-shrink-0 px-3 py-2 rounded-lg flex items-center justify-center transition-colors font-bold text-xs border-2 ${
+                          item.status === 'green'
+                            ? 'bg-green-600 border-green-500 text-white'
+                            : item.status === 'yellow'
+                            ? 'bg-yellow-600 border-yellow-500 text-white'
+                            : item.status === 'red'
+                            ? 'bg-red-600 border-red-500 text-white'
+                            : item.status === 'na'
+                            ? 'bg-gray-500 border-gray-400 text-gray-200'
+                            : 'bg-gray-700 border-gray-600 text-gray-400'
                         }`}
                       >
-                        {item.checked && (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                            <polyline points="20 6 9 17 4 12"/>
-                          </svg>
-                        )}
+                        {item.status === 'green' && 'Good'}
+                        {item.status === 'yellow' && 'Ok'}
+                        {item.status === 'red' && 'Bad'}
+                        {item.status === 'na' && 'N/A'}
+                        {!item.status && '○'}
                       </button>
                       <div className="flex-1">
                         <label
@@ -331,14 +460,58 @@ export default function PMChecklistPage({ params }: { params: { unitId: string }
                         >
                           {item.text}
                         </label>
-                        {item.checked && (
-                          <textarea
-                            value={item.notes || ''}
-                            onChange={(e) => updateNotes(currentSectionData.id, item.id, e.target.value)}
-                            placeholder="Add notes..."
-                            className="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-                            rows={2}
-                          />
+                        {item.status && (
+                          <div className="mt-2 space-y-3">
+                            <textarea
+                              value={item.notes || ''}
+                              onChange={(e) => updateNotes(currentSectionData.id, item.id, e.target.value)}
+                              placeholder="Add notes..."
+                              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                              rows={2}
+                            />
+                            
+                            {/* Image Upload Section */}
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <label className="text-xs text-gray-400">Attach Photos:</label>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleImageUpload(currentSectionData.id, item.id, e)}
+                                  className="hidden"
+                                  id={`image-upload-${item.id}`}
+                                />
+                                <label
+                                  htmlFor={`image-upload-${item.id}`}
+                                  className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded cursor-pointer transition-colors"
+                                >
+                                  + Add Photo
+                                </label>
+                              </div>
+                              
+                              {/* Display uploaded images */}
+                              {item.images && item.images.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {item.images.map((image, index) => (
+                                    <div key={index} className="relative group">
+                                      <img
+                                        src={image}
+                                        alt={`Attachment ${index + 1}`}
+                                        className="w-20 h-20 object-cover rounded border border-gray-600"
+                                      />
+                                      <button
+                                        onClick={() => removeImage(currentSectionData.id, item.id, index)}
+                                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Remove image"
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -370,11 +543,13 @@ export default function PMChecklistPage({ params }: { params: { unitId: string }
             <button
               onClick={() => {
                 // Save to localStorage and navigate back
-                const dataToSave = {
-                  sections: checklist.sections,
-                  readings: readings
-                };
-                localStorage.setItem(`pm-checklist-${params.unitId}`, JSON.stringify(dataToSave));
+                if (checklist) {
+                  const dataToSave = {
+                    sections: checklist.sections,
+                    readings: readings
+                  };
+                  localStorage.setItem(`pm-checklist-${unitId}`, JSON.stringify(dataToSave));
+                }
                 router.back();
               }}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
@@ -385,7 +560,7 @@ export default function PMChecklistPage({ params }: { params: { unitId: string }
             {/* Next Button */}
             <button
               onClick={goToNextSection}
-              disabled={currentSection === checklist.sections.length}
+              disabled={!checklist || currentSection === checklist.sections.length}
               className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
             >
               <span>Next</span>
