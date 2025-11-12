@@ -25,7 +25,7 @@
 import type { ChecklistItem } from '../types';
 
 /**
- * Walk-in: Ice / Frost Build Up
+ * Walk-in: Ice Build Up
  * Issue ID: 'ice-frost-build-up'
  */
 export const iceFrostBuildUp: ChecklistItem[] = [

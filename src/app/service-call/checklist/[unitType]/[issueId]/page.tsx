@@ -4,373 +4,17 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import HypothesisPopup from '@/components/HypothesisPopup';
 import { generateHypotheses, type DiagnosticContext, type Hypothesis } from '@/app/service-call/checklist/rules';
-
-interface ChecklistItem {
-  id: string;
-  title: string;
-  items: {
-    id: string;
-    text: string;
-    checked: boolean;
-    status?: 'red' | 'yellow' | 'green' | 'na' | 'unchecked';
-    notes?: string;
-    images?: string[];
-    options?: string[];
-    selectedOption?: string;
-    selectedOptions?: string[]; // For multiple selections
-    numericInputs?: { label: string; value: string; placeholder?: string; unit?: string }[];
-    numericValue?: string;
-    unit?: string;
-    refrigerantType?: string;
-    pressureValidation?: {
-      suction: string;
-      discharge: string;
-    };
-  }[];
-}
-
-interface ServiceCallChecklist {
-  unitType: string;
-  issueType: string;
-  sections: ChecklistItem[];
-}
-
-// Specific checklist data for different unit type and issue combinations
-const walkInExcessiveFrostChecklist: ChecklistItem[] = [
-  {
-    id: '1',
-    title: 'Safety / Prep',
-    items: [
-      { id: '1-1', text: 'Disconnect power & lockout', checked: false },
-      { id: '1-2', text: 'Inspect unit condition and safety', checked: false },
-      { id: '1-3', text: 'Clear work area / access', checked: false },
-      { id: '1-4', text: 'Note ice location (coil / pan / ceiling / door)', checked: false },
-      { id: '1-5', text: 'Record box temp and setpoint', checked: false },
-    ],
-  },
-  {
-    id: '2',
-    title: 'Airflow / Fans',
-    items: [
-      { id: '2-1', text: 'Check evaporator coil for heavy frost / ice block', checked: false },
-      { id: '2-2', text: 'Verify all evaporator fans running, correct rotation', checked: false },
-      { id: '2-3', text: 'Check fan blades for ice buildup or damage', checked: false },
-      { id: '2-4', text: 'Confirm airflow not blocked by product', checked: false },
-      { id: '2-5', text: 'Check door switch / fan interlock', checked: false },
-    ],
-  },
-  {
-    id: '3',
-    title: 'Defrost / Drain',
-    items: [
-      { id: '3-1', text: 'Start manual defrost: heaters energize?', checked: false },
-      { id: '3-2', text: 'During defrost, do evap fans stop?', checked: false },
-      { id: '3-3', text: 'Coil starts to clear / melt?', checked: false },
-      { id: '3-4', text: 'Drain pan / drain line iced or blocked?', checked: false },
-      { id: '3-5', text: 'Drain line heat tape working?', checked: false },
-    ],
-  },
-  {
-    id: '4',
-    title: 'Door / Infiltration',
-    items: [
-      { id: '4-1', text: 'Inspect door gaskets for gaps / tears', checked: false },
-      { id: '4-2', text: 'Door self-closes and seals fully', checked: false },
-      { id: '4-3', text: 'Frame / jamb heaters warm and intact', checked: false },
-      { id: '4-4', text: 'Frost trails at seams / conduit penetrations', checked: false },
-      { id: '4-5', text: 'Door held open during use / loading?', checked: false },
-    ],
-  },
-  {
-    id: '5',
-    title: 'Final Test & Notes',
-    items: [
-      { id: '5-1', text: 'Return system to normal operation', checked: false },
-      { id: '5-2', text: 'Verify fans running, coil no longer choking in ice', checked: false },
-      { id: '5-3', text: 'Verify drain flowing and no standing water', checked: false },
-      { id: '5-4', text: 'Box temp trending toward setpoint', checked: false },
-      { id: '5-5', text: 'Document corrective action / parts needed', checked: false },
-      { id: '5-6', text: 'Capture final photos', checked: false },
-    ],
-  },
-];
-
-// Specific checklist for Ice / Frost Build Up
-const walkInIceFrostBuildUpChecklist: ChecklistItem[] = [
-  {
-    id: '1',
-    title: 'box check',
-    items: [
-      {
-        id: '1-1',
-        text: 'Where is the ice buildup?',
-        checked: false,
-        options: ['door', 'evap fans', 'walls near piping', 'product', 'other'],
-        selectedOptions: []
-      },
-      {
-        id: '1-2',
-        text: 'What is the box temperature?',
-        checked: false,
-        options: ['around setpoint', '10+ above setpoint', '10+ below setpoint'],
-        selectedOptions: []
-      },
-      {
-        id: '1-8',
-        text: 'Is there any product blocking airflow?',
-        checked: false,
-        options: ['clear airflow', 'partially blocked', 'overloaded'],
-        selectedOptions: []
-      },
-      {
-        id: '1-3',
-        text: 'Are all evaporator fans running?',
-        checked: false,
-        options: ['yes', 'no', 'unsure'],
-        selectedOptions: []
-      },
-      {
-        id: '1-4',
-        text: 'Is coil area visibly iced over?',
-        checked: false,
-        options: ['clear', 'light frost', 'heavy ice'],
-        selectedOptions: []
-      },
-      {
-        id: '1-5',
-        text: 'Is there standing water or ice on floor or drain pan?',
-        checked: false,
-        options: ['dry', 'some water', 'ice buildup'],
-        selectedOptions: []
-      },
-      {
-        id: '1-6',
-        text: 'Is the door sealing properly?',
-        checked: false,
-        options: ['fully sealed', 'partially sealed', 'held open'],
-        selectedOptions: []
-      },
-      {
-        id: '1-7',
-        text: 'Are the door frame heaters and/or window heaters operating properly?',
-        checked: false,
-        options: ['warm to touch (normal)', 'cold to touch (not heating)', 'not sure / no frame heaters present'],
-        selectedOptions: []
-      },
-      {
-        id: '1-10',
-        text: '[Optional] Upload overall box photos',
-        checked: false
-      }
-    ],
-  },
-  {
-    id: '2',
-    title: 'Condenser check',
-    items: [
-      {
-        id: '2-1',
-        text: 'Is the condenser fan running?',
-        checked: false,
-        options: ['Yes', 'No', 'Intermittent'],
-        selectedOptions: []
-      },
-      {
-        id: '2-2',
-        text: 'Is the compressor running or attempting to start?',
-        checked: false,
-        options: ['Yes', 'No', 'Short-cycling'],
-        selectedOptions: []
-      },
-      {
-        id: '2-3',
-        text: 'Any unusual noises, vibration, or burnt smell at the unit?',
-        checked: false,
-        options: ['None', 'Noise', 'Vibration', 'Burnt smell'],
-        selectedOptions: []
-      },
-      {
-        id: '2-4',
-        text: 'Are condenser coils visibly dirty or restricted?',
-        checked: false,
-        options: ['Clean', 'Moderate debris', 'Heavily clogged'],
-        selectedOptions: []
-      },
-      {
-        id: '2-5',
-        text: 'Record suction and discharge pressures (if gauges available)',
-        checked: false,
-        numericInputs: [
-          { label: 'Suction', value: '', placeholder: 'Enter pressure', unit: 'psig' },
-          { label: 'Discharge', value: '', placeholder: 'Enter pressure', unit: 'psig' }
-        ],
-        refrigerantType: '',
-        pressureValidation: {
-          suction: '',
-          discharge: ''
-        }
-      },
-      {
-        id: '2-6',
-        text: 'Record ambient air temperature near condenser',
-        checked: false,
-        numericValue: '',
-        unit: '°F'
-      }
-    ],
-  },
-  {
-    id: '3',
-    title: 'Defrost diagnostics',
-    items: [
-      { id: '3-1', text: 'Check defrost timer/control operation', checked: false },
-      { id: '3-2', text: 'Verify defrost heaters energize during defrost', checked: false },
-      { id: '3-3', text: 'Inspect termination/defrost sensors', checked: false }
-    ],
-  },
-  {
-    id: '4',
-    title: 'Door / infiltration checks',
-    items: [
-      { id: '4-1', text: 'Inspect frame/window heaters for power and warmth', checked: false },
-      { id: '4-2', text: 'Check door alignment and gasket seal', checked: false },
-      { id: '4-3', text: 'Look for frost trails at penetrations', checked: false }
-    ],
-  },
-  {
-    id: '5',
-    title: 'Evaporator fan checks',
-    items: [
-      { id: '5-1', text: 'Verify all fans powered and spinning freely', checked: false },
-      { id: '5-2', text: 'Clear ice from blades/guards if present', checked: false },
-      { id: '5-3', text: 'Check fan interlocks/door switches', checked: false }
-    ],
-  },
-  {
-    id: '6',
-    title: 'Condenser airflow checks',
-    items: [
-      { id: '6-1', text: 'Clean condenser coil and verify airflow path', checked: false },
-      { id: '6-2', text: 'Verify condenser fan operation and rotation', checked: false },
-      { id: '6-3', text: 'Check for obstructions/recirculation', checked: false }
-    ],
-  },
-  {
-    id: '8',
-    title: 'Evap drain tracing',
-    items: [
-      { id: '8-1', text: 'Open evaporator compartment access panels', checked: false },
-      { id: '8-2', text: 'Pour warm water over iced areas in evaporator case', checked: false },
-      { id: '8-3', text: 'Trace melt path and follow water flow toward drain', checked: false },
-      { id: '8-4', text: 'Did you find a fault?', checked: false, options: ['yes', 'no'], selectedOptions: [] },
-      { id: '8-5', text: 'Describe fault found (optional)', checked: false },
-    ],
-  },
-  {
-    id: '9',
-    title: 'Suction line humidity checks',
-    items: [
-      { id: '9-1', text: 'Inspect suction line insulation for gaps/tears', checked: false },
-      { id: '9-2', text: 'Look for moisture sources near suction line', checked: false },
-      { id: '9-3', text: 'Seal/repair insulation as needed', checked: false },
-    ],
-  },
-  {
-    id: '7',
-    title: 'General diagnostics',
-    items: [
-      { id: '7-1', text: 'Perform broad system checks as needed', checked: false },
-      { id: '7-2', text: 'Document observations and plan', checked: false }
-    ],
-  },
-  {
-    id: '10',
-    title: 'Wrap up',
-    items: [
-      { id: '10-1', text: 'Restore power and disconnects', checked: false },
-      { id: '10-2', text: 'Verify all ice melted and area dried', checked: false },
-      { id: '10-3', text: 'Reinstall panels/guards and clean workspace', checked: false },
-      { id: '10-4', text: 'Confirm unit trending to setpoint', checked: false }
-    ],
-  },
-];
+import { getChecklistFor } from '@/app/service-call/checklist/config';
+import type { ChecklistItem, ServiceCallChecklist } from '@/app/service-call/checklist/types';
 
 // Helper function to generate service call checklist data
+// Now uses centralized configuration from config.ts
 function getServiceCallChecklist(unitType: string, issueId: string): ServiceCallChecklist {
-  // Return specific checklist based on unit type and issue combination
-  if (unitType === 'walkIn' && issueId === 'ice-frost-build-up') {
-    return {
-      unitType,
-      issueType: issueId,
-      sections: walkInIceFrostBuildUpChecklist,
-    };
-  }
-  if (unitType === 'walkIn' && issueId === 'excessive-frost') {
-    return {
-      unitType,
-      issueType: issueId,
-      sections: walkInExcessiveFrostChecklist,
-    };
-  }
-
-  // Default placeholder for other combinations
-  const defaultChecklist: ChecklistItem[] = [
-    {
-      id: '1',
-      title: 'Safety / Prep',
-      items: [
-        { id: '1-1', text: 'Disconnect power & lockout', checked: false },
-        { id: '1-2', text: 'Inspect unit condition and safety', checked: false },
-        { id: '1-3', text: 'Clear work area', checked: false },
-      ],
-    },
-    {
-      id: '2',
-      title: 'Initial Diagnosis',
-      items: [
-        { id: '2-1', text: 'Check power supply and connections', checked: false },
-        { id: '2-2', text: 'Verify control settings', checked: false },
-        { id: '2-3', text: 'Test basic operation', checked: false },
-      ],
-    },
-    {
-      id: '3',
-      title: 'System Check',
-      items: [
-        { id: '3-1', text: 'Inspect components for visible issues', checked: false },
-        { id: '3-2', text: 'Check for leaks or damage', checked: false },
-        { id: '3-3', text: 'Test system response', checked: false },
-      ],
-    },
-    {
-      id: '4',
-      title: 'Repair Actions',
-      items: [
-        { id: '4-1', text: 'Perform necessary repairs', checked: false },
-        { id: '4-2', text: 'Replace faulty components', checked: false },
-        { id: '4-3', text: 'Clean and adjust as needed', checked: false },
-      ],
-    },
-    {
-      id: '5',
-      title: 'Testing & Verification',
-      items: [
-        { id: '5-1', text: 'Test system operation', checked: false },
-        { id: '5-2', text: 'Verify issue resolution', checked: false },
-        { id: '5-3', text: 'Check for proper cycling', checked: false },
-      ],
-    },
-    {
-      id: '6',
-      title: 'Notes & Recommended Repairs',
-      items: [], // No checklist items, handled by separate inputs
-    },
-  ];
-
+  const sections = getChecklistFor(unitType, issueId);
   return {
     unitType,
     issueType: issueId,
-    sections: defaultChecklist,
+    sections,
   };
 }
 
@@ -922,19 +566,18 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
     if (!checklist) return;
     // After Section 2, run hypothesis selection
     if (currentSection === 2) {
-      // DEMO: hard-coded suggestions
-      const list: Hypothesis[] = [
-        { id: 'demo-evap-drain', label: 'Trace icing near evap for drain issues', reason: 'Demo suggested next step', confidence: 0.95, nextSectionId: 'evapDrainTracingDemo' },
-        { id: 'demo-defrost', label: 'Check defrost operation', reason: 'Demo suggested next step', confidence: 0.9, nextSectionId: 'defrostDiagnostics' },
-        { id: 'demo-humidity', label: 'Check for excess humidity sources near suction line', reason: 'Demo suggested next step', confidence: 0.85, nextSectionId: 'suctionLineHumidityChecks' },
-      ];
-      // Auto navigate only if exactly one with >= 0.9 (not the case here since we have 2) else popup
-      const strong = list.filter(h => h.confidence >= 0.9);
-      if (strong.length === 1) {
-        navigateToNextSectionId(strong[0].nextSectionId);
+      const ctx = buildDiagnosticContext();
+      const list = ctx ? generateHypotheses(ctx) : [];
+
+      if (list.length === 0) {
+        if (currentSection < checklist.sections.length) {
+          setCurrentSection(currentSection + 1);
+        }
         return;
       }
-      setHypotheses(list);
+
+      const sorted = [...list].sort((a, b) => b.confidence - a.confidence);
+      setHypotheses(sorted);
       setHypothesesOpen(true);
       return;
     }
@@ -1010,26 +653,32 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
     }
 
     const names: Record<string, string> = {
-      'no-heat': 'No Heat',
-      'no-cooling': 'No Cooling',
-      'poor-airflow': 'Poor Airflow',
-      'noisy-operation': 'Noisy Operation',
-      'short-cycling': 'Short Cycling',
-      'high-energy-usage': 'High Energy Usage',
       'not-cooling': 'Not Cooling',
-      'excessive-frost': 'Excessive Frost',
-      'ice-frost-build-up': 'Ice / Frost Build Up',
+      'not-heating': 'Not Heating',
+      'poor-airflow': 'Poor Airflow',
+      'unit-not-running': 'Unit Not Running (incl. thermostat / comm error)',
+      'unit-not-running-display': 'Not Running',
+      'unit-leaking': 'Water Leaking From Unit',
+      'short-cycling': 'Short Cycling / Noisy Operation',
+      'zoning-issues': 'Zoning Issues',
       'running-warm': 'Running Warm',
+      'excessive-frost': 'Excessive Frost',
+      'ice-frost-build-up': 'Ice Build Up',
       'water-leaking': 'Water Leaking',
+      'running-constantly': 'Constant Run / Short Cycle',
+      'noisy-operation': 'Noisy Operation',
+      'door-gasket-issue': 'Door Issue',
+      'other-alarm': 'Other / Alarm',
       'box-too-cold': 'Box Too Cold',
       'door-seal-issue': 'Door Seal Issue',
       'fan-not-working': 'Fan Not Working',
       'temperature-fluctuation': 'Temperature Fluctuation',
       'defrost-issue': 'Defrost Issue',
-      'no-ice-production': 'No Ice Production',
+      'no-ice-production': 'No (or slow) Ice Production',
       'poor-ice-quality': 'Poor Ice Quality',
-      'water-leak': 'Water Leak',
-      'machine-not-cycling': 'Machine Not Cycling',
+      'water-leak': 'Water Leaking',
+      'machine-not-cycling': 'Power or Cycle Issues',
+      'machine-icing-up': 'Machine Icing Up',
       'water-quality-issue': 'Water Quality Issue',
       'custom-issue': 'Custom Issue'
     };
@@ -1050,7 +699,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       {/* Header */}
       <div className="border-b border-gray-700 bg-gray-800 sticky top-0 z-10">
         <div className="px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => router.back()}
@@ -1061,8 +710,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                 </svg>
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white">{getUnitTypeName(unitType)} - {getIssueName(issueId)}</h1>
-                <p className="text-sm text-gray-400">Service Call Checklist</p>
+                <h1 className="text-2xl font-bold text-white">{`${getUnitTypeName(unitType)}: ${getIssueName(issueId)}`}</h1>
               </div>
             </div>
           </div>
@@ -1080,10 +728,10 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
             >
               <div className="relative">
                 {/* Timeline background line */}
-                <div className="absolute top-5 h-0.5 bg-gray-600 z-0" style={{
-                  left: '10px',
-                  width: `${timelineWidth}px`
-                }}></div>
+                <div
+                  className="absolute top-5 h-0.5 bg-gray-600 z-0"
+                  style={{ left: '10px', width: `${Math.min(timelineWidth, 220)}px` }}
+                ></div>
 
                 <div
                   className="flex items-start justify-start relative z-10"
@@ -1117,7 +765,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                       })}
                       <div className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
                         <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-gray-700 text-gray-300">→</div>
-                        <span className="text-xs text-gray-400 text-center whitespace-nowrap">Specific troubleshooting based on diag inputs</span>
+                        <span className="text-xs text-gray-400 text-center whitespace-nowrap">Next steps based on inputs</span>
                       </div>
                     </>
                   ) : (!chosenWrapUp) ? (
@@ -1909,51 +1557,64 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       </div>
 
       {/* Action Buttons */}
-      <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 py-4 mt-6">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="flex justify-between items-center">
-            {/* Previous Button */}
+      <div className="sticky bottom-0 bg-gray-900/95 backdrop-blur border-t border-gray-700/80 py-4 mt-6">
+        <div className="max-w-4xl mx-auto px-4 space-y-3">
+          <div className="flex gap-3">
             <button
               onClick={goToPreviousSection}
               disabled={currentSection === 1}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-gray-600/70 bg-gray-800 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="15 18 9 12 15 6"/>
               </svg>
               <span>Previous</span>
             </button>
-
-            {/* Save Button */}
-            <button
-              onClick={() => {
-                // Save to localStorage and navigate back
-                if (checklist) {
-                  const dataToSave = {
-                    sections: checklist.sections,
-                    readings: readings
-                  };
-                  localStorage.setItem(`service-checklist-${unitType}-${issueId}`, JSON.stringify(dataToSave));
-                }
-                router.back();
-              }}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-            >
-              Save & Return
-            </button>
-
-            {/* Next Button */}
             <button
               onClick={goToNextSection}
               disabled={!checklist || currentSection === checklist.sections.length}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-blue-500/60 bg-blue-500/10 px-4 py-2.5 text-sm font-medium text-blue-100 shadow-sm transition-colors hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span>Next</span>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="9 18 15 12 9 6"/>
               </svg>
             </button>
           </div>
+
+          <button
+            onClick={() => {
+              if (checklist) {
+                const dataToSave = {
+                  sections: checklist.sections,
+                  readings: readings
+                };
+                localStorage.setItem(`service-checklist-${unitType}-${issueId}`, JSON.stringify(dataToSave));
+              }
+              router.back();
+            }}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-blue-500 px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-0"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-80">
+              <path d="M7 3h10l2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+              <path d="M7 3h10v6H7z"/>
+              <path d="M9 13h6v6H9z"/>
+            </svg>
+            <span>Save & Return</span>
+          </button>
+
+          {hypotheses.length > 0 && currentSection > 2 && (
+            <button
+              onClick={() => setHypothesesOpen(true)}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-amber-500/70 px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-amber-500/80"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-80">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+                <polyline points="21 3 21 9 15 9"/>
+              </svg>
+              <span>Revisit suggested next steps</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

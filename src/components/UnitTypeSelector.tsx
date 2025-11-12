@@ -38,7 +38,7 @@ export default function UnitTypeSelector({ onUnitTypeSelect }: UnitTypeSelectorP
     },
     {
       id: 'reach-in',
-      name: 'Reach-in Cooler/Freezer',
+      name: 'Reach-in cooler or freezer',
       fullName: 'Reach-in Refrigeration',
       description: 'Commercial reach-in refrigeration units',
       available: true,
@@ -55,7 +55,7 @@ export default function UnitTypeSelector({ onUnitTypeSelect }: UnitTypeSelectorP
     },
     {
       id: 'walk-in',
-      name: 'Walk-in Cooler/Freezer',
+      name: 'Walk-in cooler or freezer',
       fullName: 'Walk-in Refrigeration',
       description: 'Large commercial walk-in refrigeration',
       available: true,

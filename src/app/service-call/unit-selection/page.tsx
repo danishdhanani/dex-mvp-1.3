@@ -29,13 +29,13 @@ export default function ServiceCallUnitSelectionPage() {
     },
     {
       id: 'reachIn',
-      name: 'Reach-in',
+      name: 'Reach-in cooler or freezer',
       icon: 'M12 2L2 7L12 12L22 7L12 2Z',
       color: 'yellow'
     },
     {
       id: 'walkIn',
-      name: 'Walk-in',
+      name: 'Walk-in cooler or freezer',
       icon: 'M12 2L2 7L12 12L22 7L12 2Z',
       color: 'cyan'
     },
