@@ -646,26 +646,52 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
     return names[unitType] || unitType;
   };
 
-  const getIssueName = (issueId: string): string => {
+  const getIssueName = (issueId: string, unitType?: string): string => {
     // If it's a custom issue, return the custom description
     if (issueId === 'custom-issue' && customIssueDescription) {
       return customIssueDescription;
+    }
+
+    // Special case for short-cycling: different names for RTU vs Split Unit
+    if (issueId === 'short-cycling') {
+      if (unitType === 'splitUnit') {
+        return 'Cycle / Noise';
+      }
+      return 'Cycle / Noise Issue';
+    }
+
+    // Special case for running-constantly: different name for reach-ins and walk-ins
+    if (issueId === 'running-constantly') {
+      if (unitType === 'reachIn' || unitType === 'walkIn') {
+        return 'Cycle Issues';
+      }
+      return 'Constant Run / Short Cycle';
+    }
+
+    // Special case for ice machine shared issues
+    if (issueId === 'water-leaking' && unitType === 'iceMachine') {
+      return 'Leaking';
+    }
+    if (issueId === 'noisy-operation' && unitType === 'iceMachine') {
+      return 'Noisy';
+    }
+    if (issueId === 'other-alarm' && unitType === 'iceMachine') {
+      return 'Other';
     }
 
     const names: Record<string, string> = {
       'not-cooling': 'Not Cooling',
       'not-heating': 'Not Heating',
       'poor-airflow': 'Poor Airflow',
-      'unit-not-running': 'Unit Not Running (incl. thermostat / comm error)',
+      'unit-not-running': 'Not Running',
       'unit-not-running-display': 'Not Running',
-      'unit-leaking': 'Water Leaking From Unit',
-      'short-cycling': 'Short Cycling / Noisy Operation',
+      'unit-leaking': 'Water Leaking',
       'zoning-issues': 'Zoning Issues',
       'running-warm': 'Running Warm',
       'excessive-frost': 'Excessive Frost',
       'ice-frost-build-up': 'Ice Build Up',
       'water-leaking': 'Water Leaking',
-      'running-constantly': 'Constant Run / Short Cycle',
+
       'noisy-operation': 'Noisy Operation',
       'door-gasket-issue': 'Door Issue',
       'other-alarm': 'Other / Alarm',
@@ -674,11 +700,11 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       'fan-not-working': 'Fan Not Working',
       'temperature-fluctuation': 'Temperature Fluctuation',
       'defrost-issue': 'Defrost Issue',
-      'no-ice-production': 'No (or slow) Ice Production',
-      'poor-ice-quality': 'Poor Ice Quality',
+      'no-ice-production': 'No/slow Ice',
+      'poor-ice-quality': 'Poor Quality',
       'water-leak': 'Water Leaking',
-      'machine-not-cycling': 'Power or Cycle Issues',
-      'machine-icing-up': 'Machine Icing Up',
+      'machine-not-cycling': 'Cycle Issue',
+      'machine-icing-up': 'Icing Up',
       'water-quality-issue': 'Water Quality Issue',
       'custom-issue': 'Custom Issue'
     };
@@ -710,7 +736,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                 </svg>
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white">{`${getUnitTypeName(unitType)}: ${getIssueName(issueId)}`}</h1>
+                <h1 className="text-2xl font-bold text-white">{`${getUnitTypeName(unitType)}: ${getIssueName(issueId, unitType)}`}</h1>
               </div>
             </div>
           </div>
