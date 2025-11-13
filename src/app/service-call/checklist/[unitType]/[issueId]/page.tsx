@@ -56,9 +56,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
           try {
             const parsed = JSON.parse(savedData);
             // Check if first section is "box check" - if not, clear old data from prior structure
-            // Also clear if it's RTU not-cooling to ensure fresh state with conditionalOn properties
-            if (!parsed.sections || !parsed.sections[0] || parsed.sections[0].title !== 'box check' || 
-                (resolved.unitType === 'rtu' && resolved.issueId === 'not-cooling')) {
+            if (!parsed.sections || !parsed.sections[0] || parsed.sections[0].title !== 'box check') {
               localStorage.removeItem(`service-checklist-${resolved.unitType}-${resolved.issueId}`);
             }
           } catch (e) {
@@ -66,6 +64,11 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
             localStorage.removeItem(`service-checklist-${resolved.unitType}-${resolved.issueId}`);
           }
         }
+      }
+      
+      // For RTU not-cooling, clear old localStorage data to ensure fresh state with conditionalOn properties
+      if (resolved.unitType === 'rtu' && resolved.issueId === 'not-cooling') {
+        localStorage.removeItem(`service-checklist-${resolved.unitType}-${resolved.issueId}`);
       }
       
       // Clear any old data for ice-frost-build-up to ensure clean state
