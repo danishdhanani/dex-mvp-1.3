@@ -20,6 +20,11 @@ export interface ChecklistItemData {
     suction: string;
     discharge: string;
   };
+  conditionalOn?: {
+    itemId: string;
+    option: string;
+  };
+  isBlockingMessage?: boolean; // If true, displays as a blocking alert message instead of a checklist item
 }
 
 export interface ChecklistItem {

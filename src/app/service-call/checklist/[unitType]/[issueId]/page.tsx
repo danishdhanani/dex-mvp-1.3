@@ -30,6 +30,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
   const [chosenPathTitle, setChosenPathTitle] = useState<string | null>(null);
   const [wrapUpNotes, setWrapUpNotes] = useState<string>('');
   const [chosenWrapUp, setChosenWrapUp] = useState<boolean>(false);
+  const [blockingMessageResolutions, setBlockingMessageResolutions] = useState<Record<string, 'resolved' | 'acknowledged'>>({});
   const [customIssueDescription, setCustomIssueDescription] = useState<string>('');
   const [readings, setReadings] = useState({
     gasPressure: '',
@@ -55,7 +56,9 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
           try {
             const parsed = JSON.parse(savedData);
             // Check if first section is "box check" - if not, clear old data from prior structure
-            if (!parsed.sections || !parsed.sections[0] || parsed.sections[0].title !== 'box check') {
+            // Also clear if it's RTU not-cooling to ensure fresh state with conditionalOn properties
+            if (!parsed.sections || !parsed.sections[0] || parsed.sections[0].title !== 'box check' || 
+                (resolved.unitType === 'rtu' && resolved.issueId === 'not-cooling')) {
               localStorage.removeItem(`service-checklist-${resolved.unitType}-${resolved.issueId}`);
             }
           } catch (e) {
@@ -127,7 +130,9 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           numericInputs: savedItem.numericInputs || item.numericInputs,
                           refrigerantType: savedItem.refrigerantType,
                           pressureValidation: savedItem.pressureValidation,
-                          checked: savedItem.checked !== undefined ? savedItem.checked : item.checked
+                          checked: savedItem.checked !== undefined ? savedItem.checked : item.checked,
+                          conditionalOn: item.conditionalOn, // Preserve conditionalOn from original item
+                          isBlockingMessage: item.isBlockingMessage // Preserve isBlockingMessage from original item
                         };
                       }
                       return item;
@@ -265,10 +270,20 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                     const currentSelections = item.selectedOptions || (item.selectedOption ? [item.selectedOption] : []);
                     const isSelected = currentSelections.includes(option);
                     
-                    // Toggle: if selected, remove it; if not selected, add it
-                    const newSelectedOptions = isSelected
-                      ? currentSelections.filter(opt => opt !== option)
-                      : [...currentSelections, option];
+                    // For Yes/No questions (2 options) OR questions in "Unit Power" section, make it single-select
+                    // If selecting a new option, clear all others
+                    // If deselecting the current option, clear it
+                    let newSelectedOptions: string[];
+                    const isUnitPowerSection = section.title === 'Unit Power';
+                    if ((item.options && item.options.length === 2) || isUnitPowerSection) {
+                      // Single-select: if clicking the selected option, deselect it; otherwise, select only this option
+                      newSelectedOptions = isSelected ? [] : [option];
+                    } else {
+                      // Multi-select: toggle behavior
+                      newSelectedOptions = isSelected
+                        ? currentSelections.filter(opt => opt !== option)
+                        : [...currentSelections, option];
+                    }
                     
                     return {
                       ...item,
@@ -283,6 +298,22 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
             : section
         )
       };
+    });
+    
+    // Clear blocking message resolutions for any blocking messages that depend on this item
+    // This ensures the message resets when the answer changes
+    setBlockingMessageResolutions(prev => {
+      const updated = { ...prev };
+      // Find all blocking messages that depend on this item
+      checklist?.sections.forEach(section => {
+        section.items.forEach(item => {
+          if (item.isBlockingMessage && item.conditionalOn?.itemId === itemId) {
+            // Clear the resolution state so the message can reappear fresh
+            delete updated[item.id];
+          }
+        });
+      });
+      return updated;
     });
   };
 
@@ -326,7 +357,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                   if (item.id === itemId) {
                     const newInputs = item.numericInputs?.map((input, idx) =>
                       idx === inputIndex ? { ...input, value } : input
-                    );
+                    )
                     
                     // Auto-validate pressures if this is the pressure recording item
                     let newPressureValidation = item.pressureValidation || { suction: '', discharge: '' };
@@ -545,21 +576,44 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       doorSeal: getSel('1-6')?.selectedOptions?.[0] || getSel('1-6')?.selectedOption,
       frameHeaterStatus: getSel('1-7')?.selectedOptions?.[0] || getSel('1-7')?.selectedOption,
     };
-    // Section 2 (Condenser)
+    // Section 2 (Condenser) - only if it exists
     const s2 = checklist.sections[1];
-    const suctionStr = s2.items.find(i => i.id === '2-5')?.numericInputs?.[0]?.value || '';
-    const dischargeStr = s2.items.find(i => i.id === '2-5')?.numericInputs?.[1]?.value || '';
-    const refrigerant = s2.items.find(i => i.id === '2-5')?.refrigerantType;
+    const suctionStr = s2?.items.find(i => i.id === '2-5')?.numericInputs?.[0]?.value || '';
+    const dischargeStr = s2?.items.find(i => i.id === '2-5')?.numericInputs?.[1]?.value || '';
+    const refrigerant = s2?.items.find(i => i.id === '2-5')?.refrigerantType;
     const condenser = {
       suctionPsig: suctionStr ? parseFloat(suctionStr) : undefined,
       dischargePsig: dischargeStr ? parseFloat(dischargeStr) : undefined,
-      condenserFan: s2.items.find(i => i.id === '2-1')?.selectedOptions?.[0] || s2.items.find(i => i.id === '2-1')?.selectedOption,
-      compressor: s2.items.find(i => i.id === '2-2')?.selectedOptions?.[0] || s2.items.find(i => i.id === '2-2')?.selectedOption,
-      noises: s2.items.find(i => i.id === '2-3')?.selectedOptions?.[0] || s2.items.find(i => i.id === '2-3')?.selectedOption,
-      coilDirty: s2.items.find(i => i.id === '2-4')?.selectedOptions?.[0] || s2.items.find(i => i.id === '2-4')?.selectedOption,
+      condenserFan: s2?.items.find(i => i.id === '2-1')?.selectedOptions?.[0] || s2?.items.find(i => i.id === '2-1')?.selectedOption,
+      compressor: s2?.items.find(i => i.id === '2-2')?.selectedOptions?.[0] || s2?.items.find(i => i.id === '2-2')?.selectedOption,
+      noises: s2?.items.find(i => i.id === '2-3')?.selectedOptions?.[0] || s2?.items.find(i => i.id === '2-3')?.selectedOption,
+      coilDirty: s2?.items.find(i => i.id === '2-4')?.selectedOptions?.[0] || s2?.items.find(i => i.id === '2-4')?.selectedOption,
       refrigerant
     };
     return { visual, condenser };
+  };
+
+  // Check if there's an active blocking message in the current section
+  const hasActiveBlockingMessage = (): boolean => {
+    if (!checklist) return false;
+    const currentSectionData = checklist.sections[currentSection - 1];
+    if (!currentSectionData) return false;
+    
+    return currentSectionData.items.some((item) => {
+      if (item.conditionalOn && item.isBlockingMessage) {
+        // Skip if this blocking message has been resolved or acknowledged
+        const resolution = blockingMessageResolutions[item.id];
+        if (resolution === 'resolved' || resolution === 'acknowledged') {
+          return false;
+        }
+        const referencedItem = currentSectionData.items.find(i => i.id === item.conditionalOn!.itemId);
+        if (referencedItem) {
+          const selectedValue = referencedItem.selectedOptions?.[0] || referencedItem.selectedOption;
+          return selectedValue !== undefined && selectedValue === item.conditionalOn!.option;
+        }
+      }
+      return false;
+    });
   };
 
   const goToNextSection = () => {
@@ -760,13 +814,11 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                 ></div>
 
                 <div
-                  className="flex items-start justify-start relative z-10"
-                  style={{ paddingLeft: '10px', paddingRight: '10px', gap: '24px' }}
+                  className="flex items-start justify-start relative z-10 gap-4"
                 >
                   {(!chosenPathTitle && !chosenWrapUp) ? (
                     <>
-                      {[0,1].map((idx) => {
-                        const section = checklist.sections[idx];
+                      {checklist.sections.slice(0, 2).map((section, idx) => {
                         const sectionNumber = idx + 1;
                         const isActive = sectionNumber === currentSection;
                         const isCompleted = section.items.every(item => {
@@ -781,13 +833,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           if (item.options) return (item.selectedOptions && item.selectedOptions.length > 0) || (item.selectedOption && item.selectedOption.trim() !== '');
                           return item.status && item.status !== 'unchecked';
                         });
-                        const getDescriptor = (title: string) => ({ 'box check': 'Box', 'Condenser check': 'Condenser', 'Safety / Prep': 'Safety' } as Record<string,string>)[title] || 'Step';
+                        const getDescriptor = (title: string) => ({ 'box check': 'Box', 'Condenser check': 'Condenser', 'Safety / Prep': 'Safety' } as Record<string,string>)[title] || title;
                         return (
                           <div key={sectionNumber} className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
                             <button onClick={() => goToSection(sectionNumber)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{sectionNumber}</button>
                             <span className="text-xs text-gray-400 text-center whitespace-nowrap">{getDescriptor(section.title)}</span>
                           </div>
-                        );
+                        )
                       })}
                       <div className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
                         <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-gray-700 text-gray-300">→</div>
@@ -796,8 +848,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                     </>
                   ) : (!chosenWrapUp) ? (
                     <>
-                      {[0,1].map((idx) => {
-                        const section = checklist.sections[idx];
+                      {checklist.sections.slice(0, 2).map((section, idx) => {
                         const sectionNumber = idx + 1;
                         const isActive = sectionNumber === currentSection;
                         const isCompleted = section.items.every(item => {
@@ -811,13 +862,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           if (item.options) return (item.selectedOptions && item.selectedOptions.length > 0) || (item.selectedOption && item.selectedOption.trim() !== '');
                           return item.status && item.status !== 'unchecked';
                         });
-                        const getDescriptor = (title: string) => ({ 'box check': 'Box', 'Condenser check': 'Condenser', 'Safety / Prep': 'Safety' } as Record<string,string>)[title] || 'Step';
+                        const getDescriptor = (title: string) => ({ 'box check': 'Box', 'Condenser check': 'Condenser', 'Safety / Prep': 'Safety' } as Record<string,string>)[title] || title;
                         return (
                           <div key={sectionNumber} className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
                             <button onClick={() => goToSection(sectionNumber)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{sectionNumber}</button>
                             <span className="text-xs text-gray-400 text-center whitespace-nowrap">{getDescriptor(section.title)}</span>
                           </div>
-                        );
+                        )
                       })}
                       {(() => {
                         const title = chosenPathTitle!;
@@ -835,14 +886,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                             <button onClick={() => idx >= 0 && setCurrentSection(idx + 1)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>3</button>
                             <span className="text-xs text-gray-400 text-center whitespace-nowrap">{label}</span>
                           </div>
-                        );
+                        )
                       })()}
                     </>
                   ) : (
                     // With wrap up chosen: show 1,2, chosen path (3), and wrap up (4)
                     <>
-                      {[0,1].map((idx) => {
-                        const section = checklist.sections[idx];
+                      {checklist.sections.slice(0, 2).map((section, idx) => {
                         const sectionNumber = idx + 1;
                         const isActive = sectionNumber === currentSection;
                         const isCompleted = section.items.every(item => {
@@ -856,13 +906,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           if (item.options) return (item.selectedOptions && item.selectedOptions.length > 0) || (item.selectedOption && item.selectedOption.trim() !== '');
                           return item.status && item.status !== 'unchecked';
                         });
-                        const getDescriptor = (title: string) => ({ 'box check': 'Box', 'Condenser check': 'Condenser', 'Safety / Prep': 'Safety' } as Record<string,string>)[title] || 'Step';
+                        const getDescriptor = (title: string) => ({ 'box check': 'Box', 'Condenser check': 'Condenser', 'Safety / Prep': 'Safety' } as Record<string,string>)[title] || title;
                         return (
                           <div key={sectionNumber} className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
                             <button onClick={() => goToSection(sectionNumber)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{sectionNumber}</button>
                             <span className="text-xs text-gray-400 text-center whitespace-nowrap">{getDescriptor(section.title)}</span>
                           </div>
-                        );
+                        )
                       })}
                       {(() => {
                         const title = chosenPathTitle!;
@@ -880,7 +930,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                             <button onClick={() => idx >= 0 && setCurrentSection(idx + 1)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>3</button>
                             <span className="text-xs text-gray-400 text-center whitespace-nowrap">{label}</span>
                           </div>
-                        );
+                        )
                       })()}
                       {(() => {
                         const idx = checklist.sections.findIndex(s => s.title === 'Wrap up');
@@ -891,7 +941,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                             <button onClick={() => idx >= 0 && setCurrentSection(idx + 1)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>4</button>
                             <span className="text-xs text-gray-400 text-center whitespace-nowrap">Wrap up</span>
                           </div>
-                        );
+                        )
                       })()}
                     </>
                   )}
@@ -946,7 +996,21 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                 </div>
                 {/* Normal checklist items */}
                 <div className="space-y-3">
-                  {currentSectionData.items.map((item) => (
+                  {currentSectionData.items.filter((item) => {
+                    // Exclude blocking messages from regular items
+                    if (item.isBlockingMessage) return false;
+                    // Show conditional items only if their condition is met
+                    if (item.conditionalOn) {
+                      const referencedItem = currentSectionData.items.find(i => i.id === item.conditionalOn!.itemId);
+                      if (referencedItem) {
+                        const selectedValue = referencedItem.selectedOptions?.[0] || referencedItem.selectedOption;
+                        // Only show if a value is selected AND it matches the condition
+                        return selectedValue !== undefined && selectedValue === item.conditionalOn!.option;
+                      }
+                      return false;
+                    }
+                    return true; // Show non-conditional items
+                  }).map((item) => (
                     <div key={item.id} className="border-b border-gray-700 pb-3 last:border-b-0">
                       <div className="flex items-start space-x-3">
                         {/* Only show status toggle if item doesn't have options, numericValue, or is optional photo */}
@@ -1034,6 +1098,105 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           )}
                         </div>
                       </div>
+                      {/* Render blocking messages inline if this item triggers them */}
+                      {currentSectionData.items
+                        .filter((blockingItem) => {
+                          if (blockingItem.isBlockingMessage && blockingItem.conditionalOn) {
+                            return blockingItem.conditionalOn.itemId === item.id;
+                          }
+                          return false;
+                        })
+                        .map((blockingItem) => {
+                          const selectedValue = item.selectedOptions?.[0] || item.selectedOption;
+                          const shouldShow = selectedValue !== undefined && selectedValue === blockingItem.conditionalOn!.option;
+                          if (!shouldShow) return null;
+                          const resolution = blockingMessageResolutions[blockingItem.id];
+                          const isResolved = resolution === 'resolved';
+                          const isAcknowledged = resolution === 'acknowledged';
+                          const bgColor = isAcknowledged ? 'bg-orange-900/30' : 'bg-red-900/30';
+                          const borderColor = isAcknowledged ? 'border-orange-600' : 'border-red-600';
+                          const iconColor = isAcknowledged ? 'text-orange-500' : 'text-red-500';
+                          const textColor = isAcknowledged ? 'text-orange-200' : 'text-red-200';
+                          const subtextColor = isAcknowledged ? 'text-orange-300' : 'text-red-300';
+                          const getAcknowledgedText = (originalText: string): string => {
+                            // Handle specific messages first - check for disconnect switch message
+                            const lowerText = originalText.toLowerCase();
+                            if ((lowerText.includes('turn on') && lowerText.includes('recheck')) || lowerText.includes('turn on & recheck')) {
+                              return 'Checked disconnect but that still did not resolve the issue.';
+                            }
+                            // Handle fuses message
+                            if (lowerText.includes('please correct for blown fuses') || lowerText.includes('correct for blown fuses')) {
+                              return 'Checked for blown fuses but that still did not resolve the issue.';
+                            }
+                            // Remove "This is" or "This is a/an" prefix and make it past tense
+                            let text = originalText.replace(/^This is (a |an )?/i, '').replace(/\.$/, '');
+                            // Convert to past tense and add context
+                            if (text.includes('upstream breaker') || (text.includes('disconnect') && !text.includes('Turn on'))) {
+                              return 'Checked upstream breaker / disconnect / fuse issues but that still did not resolve the issue.';
+                            }
+                            if (text.includes('transformer') || text.includes('fuse open')) {
+                              return 'Checked transformer and fuse issues but that still did not resolve the issue.';
+                            }
+                            if (text.includes('control circuit') || text.includes('safety switch') || text.includes('pressure switch') || text.includes('limit') || text.includes('board')) {
+                              return 'Checked control circuit and safety components but that still did not resolve the issue.';
+                            }
+                            // Generic fallback
+                            return `Checked ${text.toLowerCase()} but that still did not resolve the issue.`;
+                          };
+                          const displayText = isAcknowledged ? getAcknowledgedText(blockingItem.text) : blockingItem.text;
+                          return (
+                            <div key={blockingItem.id} className={`mt-3 p-4 ${bgColor} border-2 ${borderColor} rounded-lg`}>
+                              <div className="flex items-start space-x-3">
+                                <svg className={`w-6 h-6 ${iconColor} flex-shrink-0 mt-0.5`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div className="flex-1">
+                                  <p className={`${textColor} font-semibold`}>
+                                    {blockingItem.id === '2-2a-blocking' && !isAcknowledged ? 'Likely an upstream breaker, disconnect, or fuse problem.' : displayText}
+                                  </p>
+                                  {!isAcknowledged && !isResolved && (
+                                    <>
+                                      {blockingItem.id === '2-2a-blocking' ? (
+                                        <ul className={`${subtextColor} text-sm mt-2 space-y-1 list-disc list-inside`}>
+                                          <li>Open disconnect cover and inspect for blown fuses (confirm 0 V).</li>
+                                          <li>Check if breaker was tripped. Reset once if safe to do so.</li>
+                                          <li>If it immediately trips again, check for a short downstream (compressor, contactor, wiring).</li>
+                                        </ul>
+                                      ) : (
+                                        <p className={`${subtextColor} text-sm mt-1`}>Please resolve this issue before continuing.</p>
+                                      )}
+                                    </>
+                                  )}
+                                  {!isResolved && !isAcknowledged && (
+                                    <div className="mt-3 flex gap-2">
+                                      <button
+                                        onClick={() => {
+                                          const idx = checklist.sections.findIndex(s => s.title === 'Wrap up');
+                                          if (idx >= 0) {
+                                            setBlockingMessageResolutions(prev => ({ ...prev, [blockingItem.id]: 'resolved' }));
+                                            setChosenWrapUp(true);
+                                            setCurrentSection(idx + 1);
+                                          }
+                                        }}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
+                                      >
+                                        {blockingItem.id === '2-1a' ? 'Turning on disconnect resolved issue - wrap up' : blockingItem.id === '2-2a-blocking' ? 'Found root cause of issue, wrap up' : blockingItem.id === '2-2b-blocking' ? 'Found root cause, wrap up' : blockingItem.id === '2-2c-blocking' ? 'Found root cause, wrap up' : blockingItem.id === '2-3-blocking' ? 'Found root cause, wrap up' : blockingItem.id === '2-4-blocking' ? 'Found root cause, wrap up' : 'Issue resolved - Wrap up'}
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setBlockingMessageResolutions(prev => ({ ...prev, [blockingItem.id]: 'acknowledged' }));
+                                        }}
+                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium"
+                                      >
+                                        {blockingItem.id === '2-1a' ? 'Turning on disconnect did not resolve issue - keep troubleshooting' : blockingItem.id === '2-2a-blocking' ? 'Restored line power but issue still not resolved, keep troubleshooting' : blockingItem.id === '2-2b-blocking' ? 'Continue troubleshooting' : blockingItem.id === '2-2c-blocking' ? 'Continue troubleshooting' : blockingItem.id === '2-3-blocking' ? 'Continue troubleshooting' : blockingItem.id === '2-4-blocking' ? 'Continue troubleshooting' : 'Continue troubleshooting'}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   ))}
                 </div>
@@ -1065,7 +1228,21 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                 </div>
                 {/* Normal checklist items */}
                 <div className="space-y-3">
-                  {currentSectionData.items.map((item) => (
+                  {currentSectionData.items.filter((item) => {
+                    // Exclude blocking messages from regular items
+                    if (item.isBlockingMessage) return false;
+                    // Show conditional items only if their condition is met
+                    if (item.conditionalOn) {
+                      const referencedItem = currentSectionData.items.find(i => i.id === item.conditionalOn!.itemId);
+                      if (referencedItem) {
+                        const selectedValue = referencedItem.selectedOptions?.[0] || referencedItem.selectedOption;
+                        // Only show if a value is selected AND it matches the condition
+                        return selectedValue !== undefined && selectedValue === item.conditionalOn!.option;
+                      }
+                      return false;
+                    }
+                    return true; // Show non-conditional items
+                  }).map((item) => (
                     <div key={item.id} className="border-b border-gray-700 pb-3 last:border-b-0">
                       <div className="flex items-start space-x-3">
                         {/* Only show status toggle if item doesn't have options, numericValue, or is optional photo */}
@@ -1206,7 +1383,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           ))}
                         </div>
                       </div>
-                    );
+                    )
                   })()}
 
                   {/* 8-5: Describe fault found (notes) */}
@@ -1224,7 +1401,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           rows={4}
                         />
                       </div>
-                    );
+                    )
                   })()}
 
                   <div className="pt-2 flex gap-3">
@@ -1247,7 +1424,18 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
             ) : currentSectionData.title === 'Wrap up' ? (
               <>
                 <div className="space-y-4">
-                  {currentSectionData.items.map((item) => (
+                  {currentSectionData.items.filter((item) => {
+                    // Show conditional items only if their condition is met
+                    if (item.conditionalOn) {
+                      const referencedItem = currentSectionData.items.find(i => i.id === item.conditionalOn!.itemId);
+                      if (referencedItem) {
+                        const selectedValue = referencedItem.selectedOptions?.[0] || referencedItem.selectedOption;
+                        return selectedValue !== undefined && selectedValue === item.conditionalOn!.option;
+                      }
+                      return false;
+                    }
+                    return true; // Show non-conditional items
+                  }).map((item) => (
                     <div key={item.id} className="flex items-center gap-3">
                       <input
                         type="checkbox"
@@ -1267,8 +1455,8 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                         const s1 = checklist.sections[0];
                         const iceLoc = s1.items.find(i=>i.id==='1-1')?.selectedOptions?.[0] || s1.items.find(i=>i.id==='1-1')?.selectedOption;
                         const s2 = checklist.sections[1];
-                        const suction = s2.items.find(i=>i.id==='2-5')?.numericInputs?.[0]?.value || '';
-                        const discharge = s2.items.find(i=>i.id==='2-5')?.numericInputs?.[1]?.value || '';
+                        const suction = s2?.items.find(i=>i.id==='2-5')?.numericInputs?.[0]?.value || '';
+                        const discharge = s2?.items.find(i=>i.id==='2-5')?.numericInputs?.[1]?.value || '';
                         const evapFault = checklist.sections.find(s=>s.title==='Evap drain tracing')?.items.find(i=>i.id==='8-5')?.notes || '';
                         const wrap = checklist.sections.find(s=>s.title==='Wrap up');
                         const done = wrap ? wrap.items.filter(i => !!i.status && i.status !== 'unchecked').map(i => i.text.toLowerCase()) : [];
@@ -1352,7 +1540,20 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
             ) : (
                      /* Normal checklist items */
                      <div className="space-y-3">
-                       {currentSectionData.items.map((item) => (
+                       {currentSectionData.items.filter((item) => {
+                         // Exclude blocking messages from regular items
+                         if (item.isBlockingMessage) return false;
+                         // Show conditional items only if their condition is met
+                         if (item.conditionalOn) {
+                           const referencedItem = currentSectionData.items.find(i => i.id === item.conditionalOn!.itemId);
+                           if (referencedItem) {
+                             const selectedValue = referencedItem.selectedOptions?.[0] || referencedItem.selectedOption;
+                             return selectedValue !== undefined && selectedValue === item.conditionalOn!.option;
+                           }
+                           return false;
+                         }
+                         return true; // Show non-conditional items
+                       }).map((item) => (
                          <div key={item.id} className="border-b border-gray-700 pb-3 last:border-b-0">
                            <div className="flex items-start space-x-3">
                             {/* Only show status toggle if item doesn't have options, numericValue, or is optional photo */}
@@ -1399,7 +1600,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                                        >
                                          {option}
                                        </button>
-                                     );
+                                     )
                                    })}
                                  </div>
                                ) : null}
@@ -1574,6 +1775,105 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                         )}
                       </div>
                     </div>
+                    {/* Render blocking messages inline if this item triggers them */}
+                    {currentSectionData.items
+                      .filter((blockingItem) => {
+                        if (blockingItem.isBlockingMessage && blockingItem.conditionalOn) {
+                          return blockingItem.conditionalOn.itemId === item.id;
+                        }
+                        return false;
+                      })
+                      .map((blockingItem) => {
+                        const selectedValue = item.selectedOptions?.[0] || item.selectedOption;
+                        const shouldShow = selectedValue !== undefined && selectedValue === blockingItem.conditionalOn!.option;
+                        if (!shouldShow) return null;
+                        const resolution = blockingMessageResolutions[blockingItem.id];
+                        const isResolved = resolution === 'resolved';
+                        const isAcknowledged = resolution === 'acknowledged';
+                        const bgColor = isAcknowledged ? 'bg-orange-900/30' : 'bg-red-900/30';
+                        const borderColor = isAcknowledged ? 'border-orange-600' : 'border-red-600';
+                        const iconColor = isAcknowledged ? 'text-orange-500' : 'text-red-500';
+                        const textColor = isAcknowledged ? 'text-orange-200' : 'text-red-200';
+                        const subtextColor = isAcknowledged ? 'text-orange-300' : 'text-red-300';
+                        const getAcknowledgedText = (originalText: string): string => {
+                          // Handle specific messages first - check for disconnect switch message
+                          const lowerText = originalText.toLowerCase();
+                          if ((lowerText.includes('turn on') && lowerText.includes('recheck')) || lowerText.includes('turn on & recheck')) {
+                            return 'Checked disconnect but that still did not resolve the issue.';
+                          }
+                          // Handle fuses message
+                          if (lowerText.includes('please correct for blown fuses') || lowerText.includes('correct for blown fuses')) {
+                            return 'Checked for blown fuses but that still did not resolve the issue.';
+                          }
+                          // Remove "This is" or "This is a/an" prefix and make it past tense
+                          let text = originalText.replace(/^This is (a |an )?/i, '').replace(/\.$/, '');
+                          // Convert to past tense and add context
+                          if (text.includes('upstream breaker') || (text.includes('disconnect') && !text.includes('Turn on'))) {
+                            return 'Checked upstream breaker / disconnect / fuse issues but that still did not resolve the issue.';
+                          }
+                          if (text.includes('transformer') || text.includes('fuse open')) {
+                            return 'Checked transformer and fuse issues but that still did not resolve the issue.';
+                          }
+                          if (text.includes('control circuit') || text.includes('safety switch') || text.includes('pressure switch') || text.includes('limit') || text.includes('board')) {
+                            return 'Checked control circuit and safety components but that still did not resolve the issue.';
+                          }
+                          // Generic fallback
+                          return `Checked ${text.toLowerCase()} but that still did not resolve the issue.`;
+                        };
+                        const displayText = isAcknowledged ? getAcknowledgedText(blockingItem.text) : blockingItem.text;
+                        return (
+                          <div key={blockingItem.id} className={`mt-3 p-4 ${bgColor} border-2 ${borderColor} rounded-lg`}>
+                            <div className="flex items-start space-x-3">
+                              <svg className={`w-6 h-6 ${iconColor} flex-shrink-0 mt-0.5`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              <div className="flex-1">
+                                <p className={`${textColor} font-semibold`}>
+                                  {blockingItem.id === '2-2a-blocking' && !isAcknowledged ? 'Likely an upstream breaker, disconnect, or fuse problem.' : displayText}
+                                </p>
+                                {!isAcknowledged && !isResolved && (
+                                  <>
+                                    {blockingItem.id === '2-2a-blocking' ? (
+                                      <ul className={`${subtextColor} text-sm mt-2 space-y-1 list-disc list-inside`}>
+                                        <li>Open disconnect cover and inspect for blown fuses (confirm 0 V).</li>
+                                        <li>Check if breaker was tripped. Reset once if safe to do so.</li>
+                                        <li>If it immediately trips again, check for a short downstream (compressor, contactor, wiring).</li>
+                                      </ul>
+                                    ) : (
+                                      <p className={`${subtextColor} text-sm mt-1`}>Please resolve this issue before continuing.</p>
+                                    )}
+                                  </>
+                                )}
+                                {!isResolved && !isAcknowledged && (
+                                  <div className="mt-3 flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const idx = checklist.sections.findIndex(s => s.title === 'Wrap up');
+                                        if (idx >= 0) {
+                                          setBlockingMessageResolutions(prev => ({ ...prev, [blockingItem.id]: 'resolved' }));
+                                          setChosenWrapUp(true);
+                                          setCurrentSection(idx + 1);
+                                        }
+                                      }}
+                                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
+                                    >
+                                      {blockingItem.id === '2-1a' ? 'Turning on disconnect resolved issue - wrap up' : blockingItem.id === '2-2a-blocking' ? 'Found root cause of issue, wrap up' : blockingItem.id === '2-2b-blocking' ? 'Found root cause, wrap up' : blockingItem.id === '2-2c-blocking' ? 'Found root cause, wrap up' : blockingItem.id === '2-3-blocking' ? 'Found root cause, wrap up' : blockingItem.id === '2-4-blocking' ? 'Found root cause, wrap up' : 'Issue resolved - Wrap up'}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setBlockingMessageResolutions(prev => ({ ...prev, [blockingItem.id]: 'acknowledged' }));
+                                      }}
+                                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium"
+                                    >
+                                      {blockingItem.id === '2-1a' ? 'Turning on disconnect did not resolve issue - keep troubleshooting' : blockingItem.id === '2-2a-blocking' ? 'Restored line power but issue still not resolved, keep troubleshooting' : blockingItem.id === '2-2b-blocking' ? 'Continue troubleshooting' : blockingItem.id === '2-2c-blocking' ? 'Continue troubleshooting' : blockingItem.id === '2-3-blocking' ? 'Continue troubleshooting' : blockingItem.id === '2-4-blocking' ? 'Continue troubleshooting' : 'Continue troubleshooting'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 ))}
               </div>
@@ -1598,7 +1898,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
             </button>
             <button
               onClick={goToNextSection}
-              disabled={!checklist || currentSection === checklist.sections.length}
+              disabled={!checklist || (currentSection === checklist.sections.length && currentSection !== 2) || hasActiveBlockingMessage()}
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-blue-500/60 bg-blue-500/10 px-4 py-2.5 text-sm font-medium text-blue-100 shadow-sm transition-colors hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span>Next</span>

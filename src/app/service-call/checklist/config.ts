@@ -22,8 +22,8 @@ import type { ChecklistItem } from './types';
 
 // Import checklists from individual unit type files
 import { iceFrostBuildUp } from './checklists/walkIn';
+import { notCooling } from './checklists/rtu';
 // Import other unit types as they're added:
-// import { ... } from './checklists/rtu';
 // import { ... } from './checklists/splitUnit';
 // import { ... } from './checklists/reachIn';
 // import { ... } from './checklists/iceMachine';
@@ -104,10 +104,12 @@ export const CHECKLISTS: Record<string, ChecklistItem[]> = {
   // Walk-in checklists
   'walkIn-ice-frost-build-up': iceFrostBuildUp,
   
+  // RTU checklists:
+  'rtu-not-cooling': notCooling,
+  
   // Add more checklists here as you create them:
   // RTU checklists:
   // 'rtu-no-heat': noHeat,  // import { noHeat } from './checklists/rtu';
-  // 'rtu-no-cooling': noCooling,
   
   // Split Unit checklists:
   // 'splitUnit-poor-airflow': poorAirflow,  // import { poorAirflow } from './checklists/splitUnit';
