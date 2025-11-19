@@ -22,7 +22,15 @@ import type { ChecklistItem } from './types';
 
 // Import checklists from individual unit type files
 import { iceFrostBuildUp } from './checklists/walkIn';
-import { notCooling } from './checklists/rtu';
+import { 
+  notCooling, 
+  notHeating, 
+  poorAirflow, 
+  unitNotRunning, 
+  unitLeaking, 
+  shortCycling, 
+  zoningIssues 
+} from './checklists/rtu';
 // Import other unit types as they're added:
 // import { ... } from './checklists/splitUnit';
 // import { ... } from './checklists/reachIn';
@@ -106,11 +114,14 @@ export const CHECKLISTS: Record<string, ChecklistItem[]> = {
   
   // RTU checklists:
   'rtu-not-cooling': notCooling,
+  'rtu-not-heating': notHeating,
+  'rtu-poor-airflow': poorAirflow,
+  'rtu-unit-not-running': unitNotRunning,
+  'rtu-unit-leaking': unitLeaking,
+  'rtu-short-cycling': shortCycling,
+  'rtu-zoning-issues': zoningIssues,
   
   // Add more checklists here as you create them:
-  // RTU checklists:
-  // 'rtu-no-heat': noHeat,  // import { noHeat } from './checklists/rtu';
-  
   // Split Unit checklists:
   // 'splitUnit-poor-airflow': poorAirflow,  // import { poorAirflow } from './checklists/splitUnit';
   

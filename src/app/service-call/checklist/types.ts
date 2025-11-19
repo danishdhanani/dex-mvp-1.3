@@ -25,6 +25,9 @@ export interface ChecklistItemData {
     option: string;
   };
   isBlockingMessage?: boolean; // If true, displays as a blocking alert message instead of a checklist item
+  isInfoMessage?: boolean; // If true, displays as an informational message (not blocking)
+  isActionItem?: boolean; // If true, displays as an action item with checkbox and photo upload capability
+  customCondition?: boolean; // If true, requires custom condition checking logic in the component
 }
 
 export interface ChecklistItem {
