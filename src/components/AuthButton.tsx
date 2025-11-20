@@ -18,6 +18,7 @@ export default function AuthButton() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState('technician');
   const [orgId, setOrgId] = useState('');
@@ -99,6 +100,16 @@ export default function AuthButton() {
           setAuthLoading(false);
           return;
         }
+        if (password !== confirmPassword) {
+          setAuthError('Passwords do not match');
+          setAuthLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setAuthError('Password must be at least 6 characters');
+          setAuthLoading(false);
+          return;
+        }
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -128,6 +139,7 @@ export default function AuthButton() {
         setShowWelcomeModal(true);
         setEmail('');
         setPassword('');
+        setConfirmPassword('');
         setName('');
         setRole('technician');
         setOrgId('');
@@ -196,6 +208,7 @@ export default function AuthButton() {
                   setAuthError(null);
                   setEmail('');
                   setPassword('');
+                  setConfirmPassword('');
                   setName('');
                   setRole('technician');
                   setOrgId('');
@@ -291,8 +304,35 @@ export default function AuthButton() {
                   disabled={authLoading}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="••••••••"
+                  minLength={6}
                 />
               </div>
+
+              {isSignUp && (
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
+                    Confirm Password
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    disabled={authLoading}
+                    className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      confirmPassword && password !== confirmPassword
+                        ? 'border-red-600 focus:ring-red-500'
+                        : 'border-gray-600'
+                    }`}
+                    placeholder="••••••••"
+                    minLength={6}
+                  />
+                  {confirmPassword && password !== confirmPassword && (
+                    <p className="mt-1 text-sm text-red-400">Passwords do not match</p>
+                  )}
+                </div>
+              )}
 
               {isSignUp && (
                 <div>
@@ -408,6 +448,7 @@ export default function AuthButton() {
                   setRole('technician');
                   setOrgId('');
                   setShowOrgList(false);
+                  setConfirmPassword('');
                 }}
                 className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
               >
