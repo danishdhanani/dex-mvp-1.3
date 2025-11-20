@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AuthButton from '@/components/AuthButton';
 
 export default function JobTypePage() {
   const router = useRouter();
@@ -20,10 +21,16 @@ export default function JobTypePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
-      <div className="max-w-2xl w-full">
-        {/* Header */}
-        <div className="text-center mb-6">
+    <div className="min-h-screen bg-gray-900 flex flex-col p-4">
+      {/* Top bar with auth button */}
+      <div className="flex justify-end mb-4">
+        <AuthButton />
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="max-w-2xl w-full">
+          {/* Header */}
+          <div className="text-center mb-6">
           <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-3">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white">
               <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -99,6 +106,7 @@ export default function JobTypePage() {
           <p className="text-gray-500 text-xs">
             Select the type of job to access the right tools and resources
           </p>
+        </div>
         </div>
       </div>
     </div>
