@@ -1,12 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import AuthButton from '@/components/AuthButton';
 
 export default function JobTypePage() {
   const router = useRouter();
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    // Check if user is a manager and redirect to dashboard
+    const checkUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        if (userData?.role === 'manager') {
+          router.push('/manager/dashboard');
+        }
+      }
+    };
+    
+    checkUserRole();
+  }, [router, supabase]);
 
   const handleJobTypeSelect = (jobType: string) => {
     setSelectedJobType(jobType);

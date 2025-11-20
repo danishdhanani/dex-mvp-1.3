@@ -82,8 +82,28 @@ export default function AuthButton() {
   };
 
   const confirmSignOut = async () => {
+    // Check if user is a manager before signing out
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    let isManager = false;
+    
+    if (currentUser) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', currentUser.id)
+        .single();
+      
+      isManager = userData?.role === 'manager';
+    }
+    
     await supabase.auth.signOut();
     setShowSignOutConfirm(false);
+    
+    // Redirect managers to landing page
+    if (isManager) {
+      router.push('/job-type');
+    }
+    
     router.refresh();
   };
 
@@ -135,6 +155,8 @@ export default function AuthButton() {
         }
         
         // User record created successfully - show welcome modal
+        // Store role for routing after welcome modal
+        const userRole = role;
         setShowAuthModal(false);
         setShowWelcomeModal(true);
         setEmail('');
@@ -144,15 +166,41 @@ export default function AuthButton() {
         setRole('technician');
         setOrgId('');
         setShowOrgList(false);
+        
+        // Store role in a way we can access it in the welcome modal
+        // We'll check the user data when they click "Get Started"
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        setShowAuthModal(false);
-        setEmail('');
-        setPassword('');
+        
+        // Check user role and route accordingly
+        const { data: { user: signedInUser } } = await supabase.auth.getUser();
+        if (signedInUser) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', signedInUser.id)
+            .single();
+          
+          setShowAuthModal(false);
+          setEmail('');
+          setPassword('');
+          
+          // Route based on role
+          if (userData?.role === 'manager') {
+            router.push('/manager/dashboard');
+          } else {
+            router.push('/job-type');
+          }
+          router.refresh();
+        } else {
+          setShowAuthModal(false);
+          setEmail('');
+          setPassword('');
+        }
       }
     } catch (error: any) {
       setAuthError(error.message || 'An error occurred');
@@ -479,9 +527,25 @@ export default function AuthButton() {
                 Your account has been created successfully. You're all set to start using Dex Service Copilot.
               </p>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowWelcomeModal(false);
-                  router.push('/job-type');
+                  // Check user role to determine where to route
+                  const { data: { user: currentUser } } = await supabase.auth.getUser();
+                  if (currentUser) {
+                    const { data: userData } = await supabase
+                      .from('users')
+                      .select('role')
+                      .eq('id', currentUser.id)
+                      .single();
+                    
+                    if (userData?.role === 'manager') {
+                      router.push('/manager/dashboard');
+                    } else {
+                      router.push('/job-type');
+                    }
+                  } else {
+                    router.push('/job-type');
+                  }
                   router.refresh();
                 }}
                 className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
