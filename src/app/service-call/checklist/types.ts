@@ -22,7 +22,8 @@ export interface ChecklistItemData {
   };
   conditionalOn?: {
     itemId: string;
-    option: string;
+    option?: string; // For exact option matching
+    condition?: (value: string) => boolean; // For custom condition functions (e.g., numeric comparisons)
   };
   isBlockingMessage?: boolean; // If true, displays as a blocking alert message instead of a checklist item
   isInfoMessage?: boolean; // If true, displays as an informational message (not blocking)

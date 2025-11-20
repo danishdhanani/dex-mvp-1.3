@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import HypothesisPopup from '@/components/HypothesisPopup';
-import { generateHypotheses, generateRTUCoolingHypotheses, generateRTUHeatingHypotheses, generateNextStepSuggestions, type DiagnosticContext, type Hypothesis, type RTUCoolingChecksContext, type RTUHeatingChecksContext } from '@/app/service-call/checklist/rules';
+import { generateHypotheses, generateRTUCoolingHypotheses, generateRTUHeatingHypotheses, generateNextStepSuggestions, type DiagnosticContext, type Hypothesis, type RTUCoolingChecksContext, type RTUHeatingChecksContext, type CondenserFanBladeData } from '@/app/service-call/checklist/rules';
 import { getChecklistFor } from '@/app/service-call/checklist/config';
-import type { ChecklistItem, ServiceCallChecklist } from '@/app/service-call/checklist/types';
+import type { ChecklistItem, ChecklistItemData, ServiceCallChecklist } from '@/app/service-call/checklist/types';
 
 // Helper function to generate service call checklist data
 // Now uses centralized configuration from config.ts
@@ -30,7 +30,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
   const [currentSection, setCurrentSection] = useState(1);
   const [hypothesesOpen, setHypothesesOpen] = useState(false);
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
-  const [chosenPathTitle, setChosenPathTitle] = useState<string | null>(null);
+  const [chosenPathTitles, setChosenPathTitles] = useState<string[]>([]);
   const [wrapUpNotes, setWrapUpNotes] = useState<string>('');
   const [chosenWrapUp, setChosenWrapUp] = useState<boolean>(false);
   const [blockingMessageResolutions, setBlockingMessageResolutions] = useState<Record<string, 'resolved' | 'acknowledged'>>({});
@@ -184,14 +184,14 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
         // Fallback calculation
         let itemCount = 0;
         const isRTUWithChecks = unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating');
-        if (!chosenPathTitle && !chosenWrapUp) {
-          itemCount = isRTUWithChecks ? 4 : 3;
+        if (chosenPathTitles.length === 0 && !chosenWrapUp) {
+          itemCount = isRTUWithChecks ? 4 : 3; // sections 1-2-3 + arrow
         } else if (!chosenWrapUp) {
-          itemCount = isRTUWithChecks ? 4 : 3;
+          itemCount = isRTUWithChecks ? 3 + chosenPathTitles.length + 1 : 2 + chosenPathTitles.length + 1; // sections 1-2-3 + chosen paths + arrow
         } else {
           itemCount = isRTUWithChecks 
-            ? (chosenPathTitle ? 5 : 4)
-            : (chosenPathTitle ? 4 : 3);
+            ? (3 + chosenPathTitles.length + 1) // sections 1-2-3 + chosen paths + wrap up
+            : (2 + chosenPathTitles.length + 1); // sections 1-2 + chosen paths + wrap up
         }
         if (itemCount > 1) {
           const lastItemCenter = (itemCount - 1) * 66 + 25;
@@ -231,12 +231,12 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       
       // For RTU flows with arrows (when no path chosen yet), extend line to fully cover the arrow
       const isRTUWithChecks = unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating');
-      if (isRTUWithChecks && !chosenPathTitle && !chosenWrapUp) {
+      if (isRTUWithChecks && chosenPathTitles.length === 0 && !chosenWrapUp) {
         // Extend to the right edge of the arrow element, not just its center
         const lastRight = lastRect.right - containerRect.left;
         width = lastRight - lineStart + 10; // Add small buffer past the arrow
       } else {
-        // Add small buffer to ensure connection
+      // Add small buffer to ensure connection
         width = width + 10;
       }
       
@@ -249,7 +249,29 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
         setTimeout(updateWidth, 50);
       });
     });
-  }, [currentSection, chosenPathTitle, chosenWrapUp, checklist, unitType, issueId]);
+  }, [currentSection, chosenPathTitles, chosenWrapUp, checklist, unitType, issueId]);
+
+  // Helper function to check if a conditional item should be shown
+  const checkConditionalVisibility = (item: ChecklistItemData, sectionItems: ChecklistItemData[]): boolean => {
+    if (!item.conditionalOn) return true;
+    
+    const referencedItem = sectionItems.find(i => i.id === item.conditionalOn!.itemId);
+    if (!referencedItem) return false;
+    
+    // Check for numeric value first (for numeric inputs), then selected option
+    const value = (referencedItem.numericValue || referencedItem.selectedOptions?.[0] || referencedItem.selectedOption || '').trim();
+    
+    // If there's a custom condition function, use it
+    if (item.conditionalOn.condition) {
+      return item.conditionalOn.condition(value);
+    }
+    // Otherwise, use exact option matching
+    if (item.conditionalOn.option) {
+      return value !== undefined && value !== '' && value === item.conditionalOn.option;
+    }
+    
+    return false;
+  };
 
   // Save progress to localStorage whenever checklist or readings change
   useEffect(() => {
@@ -660,7 +682,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       const index = checklist.sections.findIndex(s => s.id === nextSectionId);
       if (index >= 0) {
         const section = checklist.sections[index];
-        setChosenPathTitle(section.title);
+        // Add to chosen paths if not already in the array
+        setChosenPathTitles(prev => {
+          if (!prev.includes(section.title)) {
+            return [...prev, section.title];
+          }
+          return prev;
+        });
         setCurrentSection(index + 1);
         return;
       }
@@ -671,7 +699,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       console.error('navigateToNextSectionId: No title found for nextSectionId:', nextSectionId);
       return;
     }
-    setChosenPathTitle(title);
+    // Add to chosen paths if not already in the array
+    setChosenPathTitles(prev => {
+      if (!prev.includes(title)) {
+        return [...prev, title];
+      }
+      return prev;
+    });
     
     // First try to find by title
     let index = checklist.sections.findIndex(s => s.title === title);
@@ -735,8 +769,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
         }
         const referencedItem = currentSectionData.items.find(i => i.id === item.conditionalOn!.itemId);
         if (referencedItem) {
-          const selectedValue = referencedItem.selectedOptions?.[0] || referencedItem.selectedOption;
-          return selectedValue !== undefined && selectedValue === item.conditionalOn!.option;
+          const value = referencedItem.numericValue || referencedItem.selectedOptions?.[0] || referencedItem.selectedOption || '';
+          if (item.conditionalOn.condition) {
+            return item.conditionalOn.condition(value);
+          }
+          if (item.conditionalOn.option) {
+            return value !== undefined && value === item.conditionalOn.option;
+          }
         }
       }
       return false;
@@ -799,6 +838,53 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       return undefined;
     };
     
+    // Extract condenser fan amp data and blade condition from condenser diagnostics section (if available)
+    const condenserDiagnosticsSection = checklist.sections.find(s => s.title === 'Condenser diagnostics');
+    const condenserFanAmps: { fanNumber: number; measuredAmps?: number; nameplateAmps?: number; ratio?: number }[] = [];
+    const condenserFanBlades: CondenserFanBladeData[] = [];
+    
+    if (condenserDiagnosticsSection) {
+      const getValue = (itemId: string) => {
+        const item = condenserDiagnosticsSection.items.find(i => i.id === itemId);
+        return item?.selectedOptions?.[0] || item?.selectedOption || '';
+      };
+      
+      // Check each fan (1-3) for blade condition and amp data
+      for (let fanNum = 1; fanNum <= 3; fanNum++) {
+        // Extract blade condition data
+        const bladeCondition = getValue(`cd-fan-${fanNum}-blade`);
+        if (bladeCondition && bladeCondition !== 'Not checked' && bladeCondition !== 'Intact') {
+          condenserFanBlades.push({
+            fanNumber: fanNum,
+            bladeCondition
+          });
+        }
+        
+        // Extract amp data for suspect fans (not running or noisy)
+        const fanStatus = getValue(`cd-fan-${fanNum}-status`);
+        const isSuspect = fanStatus === 'Not running' || fanStatus === 'Noisy';
+        
+        if (isSuspect) {
+          const measuredAmpsItem = condenserDiagnosticsSection.items.find(i => i.id === `cd-fan-${fanNum}-measured-amps`);
+          const nameplateAmpsItem = condenserDiagnosticsSection.items.find(i => i.id === `cd-fan-${fanNum}-nameplate-amps`);
+          
+          const measuredAmps = measuredAmpsItem?.numericValue ? parseFloat(measuredAmpsItem.numericValue) : undefined;
+          const nameplateAmps = nameplateAmpsItem?.numericValue ? parseFloat(nameplateAmpsItem.numericValue) : undefined;
+          
+          // Only include if both values are present and > 0
+          if (measuredAmps !== undefined && nameplateAmps !== undefined && measuredAmps > 0 && nameplateAmps > 0) {
+            const ratio = measuredAmps / nameplateAmps;
+            condenserFanAmps.push({
+              fanNumber: fanNum,
+              measuredAmps,
+              nameplateAmps,
+              ratio
+            });
+          }
+        }
+      }
+    }
+    
     return {
       supplyFanRunning: getValue('supplyFanRunning'),
       supplyAirflowStrength: getValue('supplyAirflowStrength'),
@@ -809,7 +895,9 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       compressorStatus: getValue('compressorStatus'),
       noiseVibration: getValue('noiseVibration'),
       returnAirTemp: getNumericValue('returnAirTemp'),
-      supplyAirTemp: getNumericValue('supplyAirTemp')
+      supplyAirTemp: getNumericValue('supplyAirTemp'),
+      condenserFanAmps: condenserFanAmps.length > 0 ? condenserFanAmps : undefined,
+      condenserFanBlades: condenserFanBlades.length > 0 ? condenserFanBlades : undefined
     };
   };
 
@@ -955,9 +1043,11 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
       ];
       
       if (currentSectionData && diagnosticSections.includes(currentSectionData.title)) {
-        // Check if primary cause is "Yes" for Airflow diagnostics
+        // Check if primary cause is "Yes" for Airflow or Condenser diagnostics
         const primaryCauseFound = currentSectionData.title === 'Airflow diagnostics' 
           ? currentSectionData.items.find(i => i.id === 'af-primary-cause-found')?.selectedOptions?.[0] || currentSectionData.items.find(i => i.id === 'af-primary-cause-found')?.selectedOption
+          : currentSectionData.title === 'Condenser diagnostics'
+          ? currentSectionData.items.find(i => i.id === 'cd-primary-cause-found')?.selectedOptions?.[0] || currentSectionData.items.find(i => i.id === 'cd-primary-cause-found')?.selectedOption
           : null;
         
         // Generate next-step suggestions and show popup
@@ -969,8 +1059,8 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
           coolingChecksData || undefined
         );
         
-        // If primary cause is "Yes" in Airflow diagnostics, prepend wrap-up option
-        if (primaryCauseFound === 'Yes' && currentSectionData.title === 'Airflow diagnostics') {
+        // If primary cause is "Yes" in Airflow or Condenser diagnostics, prepend wrap-up option
+        if (primaryCauseFound === 'Yes' && (currentSectionData.title === 'Airflow diagnostics' || currentSectionData.title === 'Condenser diagnostics')) {
           const wrapUpHypothesis: Hypothesis = {
             id: 'wrap-up-primary-cause',
             label: 'Wrap up if you think you\'ve resolved the root cause',
@@ -1015,12 +1105,20 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
   const currentSectionData = checklist?.sections[currentSection - 1];
   const displayCurrentSectionNumber = () => {
     if (!checklist) return currentSection;
-    if (chosenPathTitle) {
-      const chosenIdx = checklist.sections.findIndex(s => s.title === chosenPathTitle);
-      if (currentSection === chosenIdx + 1) return 3;
+    // Check if current section is one of the chosen paths
+    for (const chosenTitle of chosenPathTitles) {
+      const chosenIdx = checklist.sections.findIndex(s => s.title === chosenTitle);
+      if (currentSection === chosenIdx + 1) {
+        const baseNumber = (unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating')) ? 4 : 3;
+        const pathIndex = chosenPathTitles.indexOf(chosenTitle);
+        return baseNumber + pathIndex;
+      }
+    }
       if (chosenWrapUp) {
         const wrapIdx = checklist.sections.findIndex(s => s.title === 'Wrap up');
-        if (currentSection === wrapIdx + 1) return 4;
+      if (currentSection === wrapIdx + 1) {
+        const baseNumber = (unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating')) ? 4 : 3;
+        return baseNumber + chosenPathTitles.length + 1;
       }
     }
     return currentSection;
@@ -1130,21 +1228,34 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
           // Handle wrap-up case
           if (h.nextSectionId === 'wrap-up') {
             // Auto-import completed action items into wrap-up notes
+            const allCompletedActionItems: string[] = [];
+            
+            // Collect from Airflow diagnostics
             const airflowSection = checklist?.sections.find(s => s.title === 'Airflow diagnostics');
             if (airflowSection) {
-              const completedActionItems = airflowSection.items
+              const airflowActionItems = airflowSection.items
                 .filter(item => item.isActionItem && item.checked)
                 .map(item => item.text);
-              
-              if (completedActionItems.length > 0) {
-                const actionItemsText = completedActionItems.map(item => `• ${item}`).join('\n');
-                setWrapUpNotes(prev => {
-                  const existing = prev.trim();
-                  return existing 
-                    ? `${existing}\n\nCompleted Actions:\n${actionItemsText}`
-                    : `Completed Actions:\n${actionItemsText}`;
-                });
-              }
+              allCompletedActionItems.push(...airflowActionItems);
+            }
+            
+            // Collect from Condenser diagnostics
+            const condenserSection = checklist?.sections.find(s => s.title === 'Condenser diagnostics');
+            if (condenserSection) {
+              const condenserActionItems = condenserSection.items
+                .filter(item => item.isActionItem && item.checked)
+                .map(item => item.text);
+              allCompletedActionItems.push(...condenserActionItems);
+            }
+            
+            if (allCompletedActionItems.length > 0) {
+              const actionItemsText = allCompletedActionItems.map(item => `• ${item}`).join('\n');
+              setWrapUpNotes(prev => {
+                const existing = prev.trim();
+                return existing 
+                  ? `${existing}\n\nCompleted Actions:\n${actionItemsText}`
+                  : `Completed Actions:\n${actionItemsText}`;
+              });
             }
             
             // Navigate to wrap-up
@@ -1209,7 +1320,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                   ref={timelineItemsRef}
                   className="flex items-start justify-start relative z-10 gap-4"
                 >
-                  {(!chosenPathTitle && !chosenWrapUp) ? (
+                  {(chosenPathTitles.length === 0 && !chosenWrapUp) ? (
                     <>
                       {checklist.sections.slice(0, 2).map((section, idx) => {
                         const sectionNumber = idx + 1;
@@ -1353,8 +1464,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           );
                         })()
                       ) : null}
-                      {chosenPathTitle && (() => {
-                        const title = chosenPathTitle;
+                      {chosenPathTitles.map((title, pathIndex) => {
                         const idx = checklist.sections.findIndex(s => s.title === title);
                         const isActive = currentSection === (idx + 1);
                         const isCompleted = idx >= 0 ? checklist.sections[idx].items.every(item => {
@@ -1377,14 +1487,15 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           return item.status && item.status !== 'unchecked';
                         }) : false;
                         const label = title === 'Evap drain tracing' ? 'Trace evap icing' : title;
-                        const pathNumber = (unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating')) ? '4' : '3';
+                        const baseNumber = (unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating')) ? 4 : 3;
+                        const pathNumber = baseNumber + pathIndex;
                         return (
-                          <div className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
+                          <div key={title} className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
                             <button onClick={() => idx >= 0 && setCurrentSection(idx + 1)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{pathNumber}</button>
                             <span className="text-xs text-gray-400 text-center whitespace-nowrap">{label}</span>
                           </div>
-                        )
-                      })()}
+                        );
+                      })}
                     </>
                   ) : (
                     // With wrap up chosen: show 1,2, section 3 (if RTU), chosen path (if exists), and wrap up
@@ -1447,8 +1558,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           );
                         })()
                       ) : null}
-                      {chosenPathTitle && (() => {
-                        const title = chosenPathTitle!;
+                      {chosenPathTitles.map((title, pathIndex) => {
                         const idx = checklist.sections.findIndex(s => s.title === title);
                         const isActive = currentSection === (idx + 1);
                         const isCompleted = idx >= 0 ? checklist.sections[idx].items.every(item => {
@@ -1460,24 +1570,21 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           return item.status && item.status !== 'unchecked';
                         }) : false;
                         const label = title === 'Evap drain tracing' ? 'Trace evap icing' : title;
-                        const pathNumber = (unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating')) ? '4' : '3';
+                        const baseNumber = (unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating')) ? 4 : 3;
+                        const pathNumber = baseNumber + pathIndex;
                         return (
-                          <div className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
+                          <div key={title} className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
                             <button onClick={() => idx >= 0 && setCurrentSection(idx + 1)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{pathNumber}</button>
                             <span className="text-xs text-gray-400 text-center whitespace-nowrap">{label}</span>
                           </div>
-                        )
-                      })()}
+                        );
+                      })}
                       {(() => {
                         const idx = checklist.sections.findIndex(s => s.title === 'Wrap up');
                         const isActive = currentSection === (idx + 1);
                         const isCompleted = idx >= 0 ? checklist.sections[idx].items.every(item => !!item.status && item.status !== 'unchecked') : false;
-                        let wrapUpNumber = '3';
-                        if (unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating')) {
-                          wrapUpNumber = chosenPathTitle ? '5' : '4';
-                        } else {
-                          wrapUpNumber = chosenPathTitle ? '4' : '3';
-                        }
+                        const baseNumber = (unitType === 'rtu' && (issueId === 'not-cooling' || issueId === 'not-heating')) ? 4 : 3;
+                        const wrapUpNumber = baseNumber + chosenPathTitles.length + 1;
                         return (
                           <div className="flex flex-col items-center space-y-1" style={{ minWidth: '50px', flexShrink: 0 }}>
                             <button onClick={() => idx >= 0 && setCurrentSection(idx + 1)} className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : isCompleted ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{wrapUpNumber}</button>
@@ -1550,13 +1657,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                     if (item.isBlockingMessage || item.isInfoMessage) return false;
                     // Show conditional items only if their condition is met
                     if (item.conditionalOn) {
-                      const referencedItem = currentSectionData.items.find(i => i.id === item.conditionalOn!.itemId);
-                      if (referencedItem) {
-                        const selectedValue = referencedItem.selectedOptions?.[0] || referencedItem.selectedOption;
-                        // Only show if a value is selected AND it matches the condition
-                        return selectedValue !== undefined && selectedValue === item.conditionalOn!.option;
-                      }
-                      return false;
+                      return checkConditionalVisibility(item, currentSectionData.items);
                     }
                     return true; // Show non-conditional items
                   }).map((item) => (
@@ -1656,8 +1757,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           return false;
                         })
                         .map((blockingItem) => {
-                          const selectedValue = item.selectedOptions?.[0] || item.selectedOption;
-                          const shouldShow = selectedValue !== undefined && selectedValue === blockingItem.conditionalOn!.option;
+                          const value = item.numericValue || item.selectedOptions?.[0] || item.selectedOption || '';
+                          let shouldShow = false;
+                          if (blockingItem.conditionalOn!.condition) {
+                            shouldShow = blockingItem.conditionalOn!.condition(value);
+                          } else if (blockingItem.conditionalOn!.option) {
+                            shouldShow = value !== undefined && value === blockingItem.conditionalOn!.option;
+                          }
                           if (!shouldShow) return null;
                           const resolution = blockingMessageResolutions[blockingItem.id];
                           const isResolved = resolution === 'resolved';
@@ -1797,13 +1903,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                     if (item.isBlockingMessage || item.isInfoMessage) return false;
                     // Show conditional items only if their condition is met
                     if (item.conditionalOn) {
-                      const referencedItem = currentSectionData.items.find(i => i.id === item.conditionalOn!.itemId);
-                      if (referencedItem) {
-                        const selectedValue = referencedItem.selectedOptions?.[0] || referencedItem.selectedOption;
-                        // Only show if a value is selected AND it matches the condition
-                        return selectedValue !== undefined && selectedValue === item.conditionalOn!.option;
-                      }
-                      return false;
+                      return checkConditionalVisibility(item, currentSectionData.items);
                     }
                     return true; // Show non-conditional items
                   }).map((item) => (
@@ -2709,33 +2809,33 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                           )}
                           {item.numericValue !== undefined && (
                             <>
-                              <input
-                                type="number"
-                                value={item.numericValue || ''}
-                                onChange={(e) => {
-                                  if (!checklist) return;
-                                  setChecklist(prev => {
-                                    if (!prev) return prev;
-                                    return {
-                                      ...prev,
-                                      sections: prev.sections.map(section =>
-                                        section.id === currentSectionData.id
-                                          ? {
-                                              ...section,
-                                              items: section.items.map(i =>
-                                                i.id === item.id
-                                                  ? { ...i, numericValue: e.target.value }
-                                                  : i
-                                              )
-                                            }
-                                          : section
-                                      )
-                                    };
-                                  });
-                                }}
-                                placeholder={`Enter ${item.unit || 'value'}`}
-                                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
+                            <input
+                              type="number"
+                              value={item.numericValue || ''}
+                              onChange={(e) => {
+                                if (!checklist) return;
+                                setChecklist(prev => {
+                                  if (!prev) return prev;
+                                  return {
+                                    ...prev,
+                                    sections: prev.sections.map(section =>
+                                      section.id === currentSectionData.id
+                                        ? {
+                                            ...section,
+                                            items: section.items.map(i =>
+                                              i.id === item.id
+                                                ? { ...i, numericValue: e.target.value }
+                                                : i
+                                            )
+                                          }
+                                        : section
+                                    )
+                                  };
+                                });
+                              }}
+                              placeholder={`Enter ${item.unit || 'value'}`}
+                              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                               {/* Show delta T after fixes interpretation right after supply air input */}
                               {item.id === 'af-deltat-after-supply' && (() => {
                                 const returnAirItem = currentSectionData.items.find(i => i.id === 'af-deltat-after-return');
@@ -2960,8 +3060,13 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                               if (actionItem.id === 'af-static-action') return false;
                               // Check if this action item is triggered by the current item
                               if (actionItem.conditionalOn && actionItem.conditionalOn.itemId === item.id) {
-                                const selectedValue = item.selectedOptions?.[0] || item.selectedOption;
-                                return selectedValue !== undefined && selectedValue === actionItem.conditionalOn.option;
+                                const value = item.numericValue || item.selectedOptions?.[0] || item.selectedOption || '';
+                                if (actionItem.conditionalOn.condition) {
+                                  return actionItem.conditionalOn.condition(value);
+                                }
+                                if (actionItem.conditionalOn.option) {
+                                  return value !== undefined && value === actionItem.conditionalOn.option;
+                                }
                               }
                               return false;
                             });
@@ -3017,7 +3122,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                                             >
                                               + Add Photo
                                             </label>
-                                          </div>
+                        </div>
                                           {actionItem.images && actionItem.images.length > 0 && (
                                             <div className="flex flex-wrap gap-2 mt-2">
                                               {actionItem.images.map((image, index) => (
@@ -3207,27 +3312,31 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
               </>
             ) : currentSectionData.title === 'Condenser diagnostics' ? (
               <>
-                {/* Info messages */}
-                {currentSectionData.items.filter(item => item.isInfoMessage).map((item) => (
-                  <div key={item.id} className="mb-4 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
-                    <p className="text-sm text-blue-200">{item.text}</p>
-                  </div>
-                ))}
-                
-                {/* Normal checklist items */}
+                {/* Part 1: Quick visuals while unit is ON */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-gray-200 mb-4 pb-2 border-b border-gray-700">
+                    Part 1: Quick visuals while unit is ON
+                  </h3>
                 <div className="space-y-3">
                   {currentSectionData.items.filter((item) => {
-                    if (item.isBlockingMessage || item.isInfoMessage) return false;
-                    // Show voltage/capacitor checks only if any fan is not running
-                    if (item.id === 'cd-fan-voltage' || item.id === 'cd-capacitor') {
-                      const fan1Status = currentSectionData.items.find(i => i.id === 'cd-fan-1-status')?.selectedOptions?.[0] || currentSectionData.items.find(i => i.id === 'cd-fan-1-status')?.selectedOption;
-                      const fan2Status = currentSectionData.items.find(i => i.id === 'cd-fan-2-status')?.selectedOptions?.[0] || currentSectionData.items.find(i => i.id === 'cd-fan-2-status')?.selectedOption;
-                      const fan3Status = currentSectionData.items.find(i => i.id === 'cd-fan-3-status')?.selectedOptions?.[0] || currentSectionData.items.find(i => i.id === 'cd-fan-3-status')?.selectedOption;
-                      const hasFanNotRunning = fan1Status === 'Not running' || fan2Status === 'Not running' || fan3Status === 'Not running';
-                      return hasFanNotRunning;
+                      // Section 1 items: fan count, fan status, fan blade, coil visual, coil cleaned
+                      const section1Items = ['cd-fan-count', 'cd-fan-1-status', 'cd-fan-1-blade', 'cd-fan-2-status', 'cd-fan-2-blade', 'cd-fan-3-status', 'cd-fan-3-blade', 'cd-coil-visual'];
+                      if (!section1Items.includes(item.id)) return false;
+                    if (item.isBlockingMessage || item.isInfoMessage || item.isActionItem) return false;
+                      // Check conditional visibility
+                      if (item.conditionalOn) {
+                        if (!checkConditionalVisibility(item, currentSectionData.items)) {
+                          return false;
+                        }
                     }
                     return true;
-                  }).map((item) => (
+                    }).map((item) => {
+                      // Check if this is a blade condition item
+                      const isBladeCondition = item.id.startsWith('cd-fan-') && item.id.endsWith('-blade') && !item.id.includes('-damaged') && !item.id.includes('-hitting');
+                      const fanNum = isBladeCondition ? item.id.match(/cd-fan-(\d+)-blade/)?.[1] : null;
+                      const bladeValue = isBladeCondition ? (item.selectedOptions?.[0] || item.selectedOption) : null;
+                      
+                      return (
                     <div key={item.id} className="border-b border-gray-700 pb-3 last:border-b-0">
                       <div className="flex items-start space-x-3">
                         <div className="flex-1">
@@ -3252,7 +3361,635 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                               })}
                             </div>
                           )}
-                          {item.numericValue !== undefined && (
+                              
+                              {/* Blade condition conditional UI */}
+                              {isBladeCondition && fanNum && bladeValue === 'Damaged' && (() => {
+                                const damagedActionItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-blade-damaged-action`);
+                                
+                                return (
+                                  <>
+                                    {/* Note about damaged blade */}
+                                    <div className="mt-3 p-3 bg-orange-900/30 border border-orange-700 rounded-lg">
+                                      <p className="text-sm text-orange-200">
+                                        Recommend blade repair or replacement. A damaged blade can cause vibration, noise, and motor overload. If blade damage is too severe, lock out and schedule for repair.
+                                      </p>
+                                    </div>
+                                    
+                                    {/* Action item for damaged blade */}
+                                    {damagedActionItem && checkConditionalVisibility(damagedActionItem, currentSectionData.items) && (
+                                      <div className="mt-4 p-3 bg-orange-900/20 border border-orange-700/50 rounded-lg">
+                                        <div className="flex items-start space-x-3">
+                                          <input
+                                            type="checkbox"
+                                            checked={damagedActionItem.checked || false}
+                                            onChange={(e) => {
+                                              if (!checklist) return;
+                                              setChecklist(prev => {
+                                                if (!prev) return prev;
+                                                return {
+                                                  ...prev,
+                                                  sections: prev.sections.map(section =>
+                                                    section.id === currentSectionData.id
+                                                      ? {
+                                                          ...section,
+                                                          items: section.items.map(i =>
+                                                            i.id === damagedActionItem.id
+                                                              ? { ...i, checked: e.target.checked }
+                                                              : i
+                                                          )
+                                                        }
+                                                      : section
+                                                  )
+                                                };
+                                              });
+                                            }}
+                                            className="mt-1 w-5 h-5 text-orange-600 bg-gray-700 border-gray-600 rounded focus:ring-orange-500 focus:ring-2"
+                                          />
+                                          <div className="flex-1">
+                                            <label className="text-gray-200 font-medium block mb-2">{damagedActionItem.text}</label>
+                                            <div className="mt-2 space-y-2">
+                                              <div className="flex items-center space-x-2">
+                                                <label className="text-xs text-gray-400">[Optional] Attach Photos:</label>
+                                                <input
+                                                  type="file"
+                                                  accept="image/*"
+                                                  onChange={(e) => handleImageUpload(currentSectionData.id, damagedActionItem.id, e)}
+                                                  className="hidden"
+                                                  id={`image-upload-action-${damagedActionItem.id}`}
+                                                />
+                                                <label
+                                                  htmlFor={`image-upload-action-${damagedActionItem.id}`}
+                                                  className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded cursor-pointer transition-colors"
+                                                >
+                                                  + Add Photo
+                                                </label>
+                                              </div>
+                                              {damagedActionItem.images && damagedActionItem.images.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                  {damagedActionItem.images.map((image, index) => (
+                                                    <div key={index} className="relative group">
+                                                      <img
+                                                        src={image}
+                                                        alt={`Attachment ${index + 1}`}
+                                                        className="w-20 h-20 object-cover rounded border border-gray-600"
+                                                      />
+                                                      <button
+                                                        onClick={() => removeImage(currentSectionData.id, damagedActionItem.id, index)}
+                                                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="Remove image"
+                                                      >
+                                                        ×
+                                                      </button>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                              
+                              {isBladeCondition && fanNum && bladeValue === 'Hitting shroud' && (() => {
+                                const hittingActionItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-blade-hitting-action`);
+                                
+                                return (
+                                  <>
+                                    {/* Note about hitting shroud */}
+                                    <div className="mt-3 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg">
+                                      <p className="text-sm text-yellow-200">
+                                        Fan blade is contacting the shroud. Fix this mechanical issue before continuing. Check that blades are not bent, motor mount is tightly aligned in place, and free of debris.
+                                      </p>
+                                    </div>
+                                    
+                                    {/* Action item for hitting shroud */}
+                                    {hittingActionItem && checkConditionalVisibility(hittingActionItem, currentSectionData.items) && (
+                                      <div className="mt-4 p-3 bg-orange-900/20 border border-orange-700/50 rounded-lg">
+                                        <div className="flex items-start space-x-3">
+                                          <input
+                                            type="checkbox"
+                                            checked={hittingActionItem.checked || false}
+                                            onChange={(e) => {
+                                              if (!checklist) return;
+                                              setChecklist(prev => {
+                                                if (!prev) return prev;
+                                                return {
+                                                  ...prev,
+                                                  sections: prev.sections.map(section =>
+                                                    section.id === currentSectionData.id
+                                                      ? {
+                                                          ...section,
+                                                          items: section.items.map(i =>
+                                                            i.id === hittingActionItem.id
+                                                              ? { ...i, checked: e.target.checked }
+                                                              : i
+                                                          )
+                                                        }
+                                                      : section
+                                                  )
+                                                };
+                                              });
+                                            }}
+                                            className="mt-1 w-5 h-5 text-orange-600 bg-gray-700 border-gray-600 rounded focus:ring-orange-500 focus:ring-2"
+                                          />
+                                          <div className="flex-1">
+                                            <label className="text-gray-200 font-medium block mb-2">{hittingActionItem.text}</label>
+                                            <div className="mt-2 space-y-2">
+                                              <div className="flex items-center space-x-2">
+                                                <label className="text-xs text-gray-400">[Optional] Attach Photos:</label>
+                                                <input
+                                                  type="file"
+                                                  accept="image/*"
+                                                  onChange={(e) => handleImageUpload(currentSectionData.id, hittingActionItem.id, e)}
+                                                  className="hidden"
+                                                  id={`image-upload-action-${hittingActionItem.id}`}
+                                                />
+                                                <label
+                                                  htmlFor={`image-upload-action-${hittingActionItem.id}`}
+                                                  className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded cursor-pointer transition-colors"
+                                                >
+                                                  + Add Photo
+                                                </label>
+                                              </div>
+                                              {hittingActionItem.images && hittingActionItem.images.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                  {hittingActionItem.images.map((image, index) => (
+                                                    <div key={index} className="relative group">
+                                                      <img
+                                                        src={image}
+                                                        alt={`Attachment ${index + 1}`}
+                                                        className="w-20 h-20 object-cover rounded border border-gray-600"
+                                                      />
+                                                      <button
+                                                        onClick={() => removeImage(currentSectionData.id, hittingActionItem.id, index)}
+                                                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="Remove image"
+                                                      >
+                                                        ×
+                                                      </button>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                              
+                              {/* Coil condition conditional UI */}
+                              {item.id === 'cd-coil-visual' && (() => {
+                                if (!currentSectionData?.items) return null;
+                                
+                                const coilValue = item.selectedOptions?.[0] || item.selectedOption;
+                                
+                                if (coilValue === 'Clean') {
+                                  const cleanInfo = currentSectionData.items.find(i => i.id === 'cd-coil-clean-info');
+                                  return cleanInfo && checkConditionalVisibility(cleanInfo, currentSectionData.items) ? (
+                                    <div className="mt-3 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
+                                      <p className="text-sm text-blue-200">{cleanInfo.text}</p>
+                                    </div>
+                                  ) : null;
+                                }
+                                
+                                if (coilValue === 'Dusty') {
+                                  const dustyInfo = currentSectionData.items.find(i => i.id === 'cd-coil-dusty-info');
+                                  const dustyAction = currentSectionData.items.find(i => i.id === 'cd-coil-dusty-action');
+                                  
+                                  return (
+                                    <>
+                                      {dustyInfo && checkConditionalVisibility(dustyInfo, currentSectionData.items) && (
+                                        <div className="mt-3 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg">
+                                          <p className="text-sm text-yellow-200">{dustyInfo.text}</p>
+                                        </div>
+                                      )}
+                                      {dustyAction && checkConditionalVisibility(dustyAction, currentSectionData.items) && (
+                                        <div className="mt-4 p-3 bg-orange-900/20 border border-orange-700/50 rounded-lg">
+                                          <div className="flex items-start space-x-3">
+                                            <input
+                                              type="checkbox"
+                                              checked={dustyAction.checked || false}
+                                              onChange={(e) => {
+                                                if (!checklist) return;
+                                                setChecklist(prev => {
+                                                  if (!prev) return prev;
+                                                  return {
+                                                    ...prev,
+                                                    sections: prev.sections.map(section =>
+                                                      section.id === currentSectionData.id
+                                                        ? {
+                                                            ...section,
+                                                            items: section.items.map(i =>
+                                                              i.id === dustyAction.id
+                                                                ? { ...i, checked: e.target.checked }
+                                                                : i
+                                                            )
+                                                          }
+                                                        : section
+                                                    )
+                                                  };
+                                                });
+                                              }}
+                                              className="mt-1 w-5 h-5 text-orange-600 bg-gray-700 border-gray-600 rounded focus:ring-orange-500 focus:ring-2"
+                                            />
+                                            <div className="flex-1">
+                                              <label className="text-gray-200 font-medium block mb-2">{dustyAction.text}</label>
+                                              <div className="mt-2 space-y-2">
+                                                <div className="flex items-center space-x-2">
+                                                  <label className="text-xs text-gray-400">[Optional] Attach Photos:</label>
+                                                  <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => handleImageUpload(currentSectionData.id, dustyAction.id, e)}
+                                                    className="hidden"
+                                                    id={`image-upload-action-${dustyAction.id}`}
+                                                  />
+                                                  <label
+                                                    htmlFor={`image-upload-action-${dustyAction.id}`}
+                                                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded cursor-pointer transition-colors"
+                                                  >
+                                                    + Add Photo
+                                                  </label>
+                                                </div>
+                                                {dustyAction.images && dustyAction.images.length > 0 && (
+                                                  <div className="flex flex-wrap gap-2 mt-2">
+                                                    {dustyAction.images.map((image, index) => (
+                                                      <div key={index} className="relative group">
+                                                        <img
+                                                          src={image}
+                                                          alt={`Attachment ${index + 1}`}
+                                                          className="w-20 h-20 object-cover rounded border border-gray-600"
+                                                        />
+                                                        <button
+                                                          onClick={() => removeImage(currentSectionData.id, dustyAction.id, index)}
+                                                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                          title="Remove image"
+                                                        >
+                                                          ×
+                                                        </button>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                }
+                                
+                                if (coilValue === 'Heavily clogged') {
+                                  if (!currentSectionData?.items) return null;
+                                  
+                                  const items = currentSectionData.items;
+                                  const cloggedInfo = items.find(i => i.id === 'cd-coil-clogged-info');
+                                  const beforeDischarge = items.find(i => i.id === 'cd-coil-clogged-pressure-before-discharge');
+                                  const cloggedAction = items.find(i => i.id === 'cd-coil-clogged-action');
+                                  const afterDischarge = items.find(i => i.id === 'cd-coil-clogged-pressure-after-discharge');
+                                  
+                                  // Calculate interpretations - safely parse numeric values
+                                  const beforeDischargeValue = (() => {
+                                    try {
+                                      const val = beforeDischarge?.numericValue;
+                                      if (val === undefined || val === null || val === '') return null;
+                                      const strVal = String(val).trim();
+                                      if (strVal === '' || strVal === 'undefined' || strVal === 'null') return null;
+                                      const parsed = parseFloat(strVal);
+                                      return (!isNaN(parsed) && isFinite(parsed)) ? parsed : null;
+                                    } catch {
+                                      return null;
+                                    }
+                                  })();
+                                  const afterDischargeValue = (() => {
+                                    try {
+                                      const val = afterDischarge?.numericValue;
+                                      if (val === undefined || val === null || val === '') return null;
+                                      const strVal = String(val).trim();
+                                      if (strVal === '' || strVal === 'undefined' || strVal === 'null') return null;
+                                      const parsed = parseFloat(strVal);
+                                      return (!isNaN(parsed) && isFinite(parsed)) ? parsed : null;
+                                    } catch {
+                                      return null;
+                                    }
+                                  })();
+                                  
+                                  let afterInterpretation = null;
+                                  let comparisonInterpretation = null;
+                                  
+                                  if (afterDischargeValue !== null) {
+                                    if (afterDischargeValue > 440) {
+                                      afterInterpretation = {
+                                        text: 'Head pressure is still very high — coil not likely the issue. Check condenser fans and airflow.',
+                                        type: 'warning'
+                                      };
+                                    } else if (afterDischargeValue >= 275 && afterDischargeValue <= 440) {
+                                      afterInterpretation = {
+                                        text: 'Head pressure is in a normal range — cleaning likely resolved the condenser airflow restriction.',
+                                        type: 'success'
+                                      };
+                                    } else if (afterDischargeValue < 275) {
+                                      afterInterpretation = {
+                                        text: 'Head pressure is low — this is not caused by a dirty coil. Check refrigerant charge or mechanical issues.',
+                                        type: 'warning'
+                                      };
+                                    }
+                                  }
+                                  
+                                  if (beforeDischargeValue !== null && afterDischargeValue !== null) {
+                                    const pressureDrop = beforeDischargeValue - afterDischargeValue;
+                                    if (pressureDrop >= 20) {
+                                      comparisonInterpretation = {
+                                        text: 'Head pressure dropped after cleaning — confirms the coil was restricting airflow.',
+                                        type: 'success'
+                                      };
+                                    } else if (pressureDrop < 10) {
+                                      comparisonInterpretation = {
+                                        text: 'Little or no improvement — coil blockage was not the primary issue.',
+                                        type: 'warning'
+                                      };
+                                    }
+                                  }
+                                  
+                                  return (
+                                    <>
+                                      {cloggedInfo && checkConditionalVisibility(cloggedInfo, items) && (
+                                        <div className="mt-3 p-3 bg-orange-900/30 border border-orange-700 rounded-lg">
+                                          <p className="text-sm text-orange-200">{cloggedInfo.text}</p>
+                                        </div>
+                                      )}
+                                      {beforeDischarge && checkConditionalVisibility(beforeDischarge, items) && (
+                                        <div className="mt-4">
+                                          <label className="text-gray-200 block mb-2">Pressures before cleaning</label>
+                                          <div className="flex items-center space-x-2">
+                                            <input
+                                              type="number"
+                                              value={beforeDischarge.numericValue || ''}
+                                              onChange={(e) => {
+                                                if (!checklist) return;
+                                                setChecklist(prev => {
+                                                  if (!prev) return prev;
+                                                  return {
+                                                    ...prev,
+                                                    sections: prev.sections.map(section =>
+                                                      section.id === currentSectionData.id
+                                                        ? {
+                                                            ...section,
+                                                            items: section.items.map(i =>
+                                                              i.id === beforeDischarge.id
+                                                                ? { ...i, numericValue: e.target.value }
+                                                                : i
+                                                            )
+                                                          }
+                                                        : section
+                                                    )
+                                                  };
+                                                });
+                                              }}
+                                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                              placeholder="Enter discharge pressure"
+                                            />
+                                            <span className="text-gray-400 text-sm">psig</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {cloggedAction && checkConditionalVisibility(cloggedAction, items) && (
+                                        <div className="mt-4 p-3 bg-orange-900/20 border border-orange-700/50 rounded-lg">
+                                          <div className="flex items-start space-x-3">
+                                            <input
+                                              type="checkbox"
+                                              checked={cloggedAction.checked || false}
+                                              onChange={(e) => {
+                                                if (!checklist) return;
+                                                setChecklist(prev => {
+                                                  if (!prev) return prev;
+                                                  return {
+                                                    ...prev,
+                                                    sections: prev.sections.map(section =>
+                                                      section.id === currentSectionData.id
+                                                        ? {
+                                                            ...section,
+                                                            items: section.items.map(i =>
+                                                              i.id === cloggedAction.id
+                                                                ? { ...i, checked: e.target.checked }
+                                                                : i
+                                                            )
+                                                          }
+                                                        : section
+                                                    )
+                                                  };
+                                                });
+                                              }}
+                                              className="mt-1 w-5 h-5 text-orange-600 bg-gray-700 border-gray-600 rounded focus:ring-orange-500 focus:ring-2"
+                                            />
+                                            <div className="flex-1">
+                                              <label className="text-gray-200 font-medium block mb-2">{cloggedAction.text}</label>
+                                              <div className="mt-2 space-y-2">
+                                                <div className="flex items-center space-x-2">
+                                                  <label className="text-xs text-gray-400">[Optional] Attach Photos:</label>
+                                                  <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => handleImageUpload(currentSectionData.id, cloggedAction.id, e)}
+                                                    className="hidden"
+                                                    id={`image-upload-action-${cloggedAction.id}`}
+                                                  />
+                                                  <label
+                                                    htmlFor={`image-upload-action-${cloggedAction.id}`}
+                                                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded cursor-pointer transition-colors"
+                                                  >
+                                                    + Add Photo
+                                                  </label>
+                                                </div>
+                                                {cloggedAction.images && cloggedAction.images.length > 0 && (
+                                                  <div className="flex flex-wrap gap-2 mt-2">
+                                                    {cloggedAction.images.map((image, index) => (
+                                                      <div key={index} className="relative group">
+                                                        <img
+                                                          src={image}
+                                                          alt={`Attachment ${index + 1}`}
+                                                          className="w-20 h-20 object-cover rounded border border-gray-600"
+                                                        />
+                                                        <button
+                                                          onClick={() => removeImage(currentSectionData.id, cloggedAction.id, index)}
+                                                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                          title="Remove image"
+                                                        >
+                                                          ×
+                                                        </button>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {afterDischarge && checkConditionalVisibility(afterDischarge, items) && (
+                                        <div className="mt-4">
+                                          <label className="text-gray-200 block mb-2">Pressures after cleaning</label>
+                                          <div className="flex items-center space-x-2">
+                                            <input
+                                              type="number"
+                                              value={afterDischarge.numericValue || ''}
+                                              onChange={(e) => {
+                                                if (!checklist) return;
+                                                setChecklist(prev => {
+                                                  if (!prev) return prev;
+                                                  return {
+                                                    ...prev,
+                                                    sections: prev.sections.map(section =>
+                                                      section.id === currentSectionData.id
+                                                        ? {
+                                                            ...section,
+                                                            items: section.items.map(i =>
+                                                              i.id === afterDischarge.id
+                                                                ? { ...i, numericValue: e.target.value }
+                                                                : i
+                                                            )
+                                                          }
+                                                        : section
+                                                    )
+                                                  };
+                                                });
+                                              }}
+                                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                                              placeholder="Enter discharge pressure"
+                                            />
+                                            <span className="text-gray-400 text-sm">psig</span>
+                                          </div>
+                                          {afterInterpretation && (
+                                            <div className={`mt-3 p-3 rounded-lg border ${
+                                              afterInterpretation.type === 'success' 
+                                                ? 'bg-green-900/30 border-green-700' 
+                                                : 'bg-yellow-900/30 border-yellow-700'
+                                            }`}>
+                                              <p className={`text-sm ${
+                                                afterInterpretation.type === 'success' 
+                                                  ? 'text-green-200' 
+                                                  : 'text-yellow-200'
+                                              }`}>{afterInterpretation.text}</p>
+                                            </div>
+                                          )}
+                                          {comparisonInterpretation && (
+                                            <div className={`mt-3 p-3 rounded-lg border ${
+                                              comparisonInterpretation.type === 'success' 
+                                                ? 'bg-green-900/30 border-green-700' 
+                                                : 'bg-yellow-900/30 border-yellow-700'
+                                            }`}>
+                                              <p className={`text-sm ${
+                                                comparisonInterpretation.type === 'success' 
+                                                  ? 'text-green-200' 
+                                                  : 'text-yellow-200'
+                                              }`}>{comparisonInterpretation.text}</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                }
+                                
+                                if (coilValue === 'Blocked by debris') {
+                                  const debrisInfo = currentSectionData.items.find(i => i.id === 'cd-coil-debris-info');
+                                  const debrisAction = currentSectionData.items.find(i => i.id === 'cd-coil-debris-action');
+                                  
+                                  return (
+                                    <>
+                                      {debrisInfo && checkConditionalVisibility(debrisInfo, currentSectionData.items) && (
+                                        <div className="mt-3 p-3 bg-orange-900/30 border border-orange-700 rounded-lg">
+                                          <p className="text-sm text-orange-200">{debrisInfo.text}</p>
+                                        </div>
+                                      )}
+                                      {debrisAction && checkConditionalVisibility(debrisAction, currentSectionData.items) && (
+                                        <div className="mt-4 p-3 bg-orange-900/20 border border-orange-700/50 rounded-lg">
+                                          <div className="flex items-start space-x-3">
+                                            <input
+                                              type="checkbox"
+                                              checked={debrisAction.checked || false}
+                                              onChange={(e) => {
+                                                if (!checklist) return;
+                                                setChecklist(prev => {
+                                                  if (!prev) return prev;
+                                                  return {
+                                                    ...prev,
+                                                    sections: prev.sections.map(section =>
+                                                      section.id === currentSectionData.id
+                                                        ? {
+                                                            ...section,
+                                                            items: section.items.map(i =>
+                                                              i.id === debrisAction.id
+                                                                ? { ...i, checked: e.target.checked }
+                                                                : i
+                                                            )
+                                                          }
+                                                        : section
+                                                    )
+                                                  };
+                                                });
+                                              }}
+                                              className="mt-1 w-5 h-5 text-orange-600 bg-gray-700 border-gray-600 rounded focus:ring-orange-500 focus:ring-2"
+                                            />
+                                            <div className="flex-1">
+                                              <label className="text-gray-200 font-medium block mb-2">{debrisAction.text}</label>
+                                              <div className="mt-2 space-y-2">
+                                                <div className="flex items-center space-x-2">
+                                                  <label className="text-xs text-gray-400">[Optional] Attach Photos:</label>
+                                                  <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => handleImageUpload(currentSectionData.id, debrisAction.id, e)}
+                                                    className="hidden"
+                                                    id={`image-upload-action-${debrisAction.id}`}
+                                                  />
+                                                  <label
+                                                    htmlFor={`image-upload-action-${debrisAction.id}`}
+                                                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded cursor-pointer transition-colors"
+                                                  >
+                                                    + Add Photo
+                                                  </label>
+                                                </div>
+                                                {debrisAction.images && debrisAction.images.length > 0 && (
+                                                  <div className="flex flex-wrap gap-2 mt-2">
+                                                    {debrisAction.images.map((image, index) => (
+                                                      <div key={index} className="relative group">
+                                                        <img
+                                                          src={image}
+                                                          alt={`Attachment ${index + 1}`}
+                                                          className="w-20 h-20 object-cover rounded border border-gray-600"
+                                                        />
+                                                        <button
+                                                          onClick={() => removeImage(currentSectionData.id, debrisAction.id, index)}
+                                                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                          title="Remove image"
+                                                        >
+                                                          ×
+                                                        </button>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                }
+                                
+                                return null;
+                              })()}
+                              
+                          {!isBladeCondition && item.id !== 'cd-coil-visual' && item.numericValue !== undefined && (
                             <input
                               type="number"
                               value={item.numericValue || ''}
@@ -3281,51 +4018,235 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           )}
-                          {item.id === 'cd-coil-visual' && (
-                            <div className="mt-3 space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <label className="text-xs text-gray-400">Attach Photos:</label>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => handleImageUpload(currentSectionData.id, item.id, e)}
-                                  className="hidden"
-                                  id={`image-upload-${item.id}`}
-                                />
-                                <label
-                                  htmlFor={`image-upload-${item.id}`}
-                                  className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded cursor-pointer transition-colors"
-                                >
-                                  + Add Photo
-                                </label>
-                              </div>
-                              {item.images && item.images.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                  {item.images.map((image, index) => (
-                                    <div key={index} className="relative group">
-                                      <img
-                                        src={image}
-                                        alt={`Attachment ${index + 1}`}
-                                        className="w-20 h-20 object-cover rounded border border-gray-600"
-                                      />
-                                      <button
-                                        onClick={() => removeImage(currentSectionData.id, item.id, index)}
-                                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Remove image"
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
-                  ))}
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Section 2: Electrical / motor drill down with power OFF */}
+                {(() => {
+                  // Determine which fans are not running or noisy
+                  const getFanStatus = (fanNum: number) => {
+                    const statusItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-status`);
+                    return statusItem?.selectedOptions?.[0] || statusItem?.selectedOption || '';
+                  };
+
+                  const fan1Status = getFanStatus(1);
+                  const fan2Status = getFanStatus(2);
+                  const fan3Status = getFanStatus(3);
+
+                  const badFans: number[] = [];
+                  if (fan1Status === 'Not running' || fan1Status === 'Noisy') badFans.push(1);
+                  if (fan2Status === 'Not running' || fan2Status === 'Noisy') badFans.push(2);
+                  if (fan3Status === 'Not running' || fan3Status === 'Noisy') badFans.push(3);
+
+                  // Only show Section 2 if there are bad fans
+                  if (badFans.length === 0) return null;
+
+                  const fanLabels = badFans.map(num => `Fan ${num}`).join(' and ');
+
+                  return (
+                    <div className="mb-8 mt-8 pt-8 border-t border-gray-700">
+                      <h3 className="text-lg font-semibold text-gray-200 mb-4 pb-2 border-b border-gray-700">
+                        Part 2: Electrical / motor drill down with power OFF
+                      </h3>
+                      
+                      {/* Subheader for bad fans */}
+                      <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                        <p className="text-sm text-yellow-200">
+                          You marked {fanLabels} as not running or noisy. Let's check those out.
+                        </p>
+                      </div>
+
+                      {/* Safety warning */}
+                      {currentSectionData.items.filter(item => item.id === 'cd-safety-warning').map((item) => {
+                        const resolution = blockingMessageResolutions[item.id];
+                        const isResolved = resolution === 'resolved';
+                        if (isResolved) return null;
+                        
+                        return (
+                          <div key={item.id} className="mb-4 p-4 bg-red-900/30 border border-red-600 rounded-lg">
+                            <p className="text-sm font-medium text-red-200">⚠️ {item.text}</p>
+                          </div>
+                        );
+                      })}
+
+                      {/* Per-fan electrical checks */}
+                      <div className="space-y-6">
+                        {badFans.map((fanNum) => {
+                          const voltageItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-voltage`);
+                          const capacitorItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-capacitor`);
+                          const spinTestItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-spin-test`);
+                          const motorTempItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-motor-temp`);
+                          const measuredAmpsItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-measured-amps`);
+                          const nameplateAmpsItem = currentSectionData.items.find(i => i.id === `cd-fan-${fanNum}-nameplate-amps`);
+
+                          // Calculate amp interpretation
+                          const measuredAmps = measuredAmpsItem?.numericValue ? parseFloat(measuredAmpsItem.numericValue) : null;
+                          const nameplateAmps = nameplateAmpsItem?.numericValue ? parseFloat(nameplateAmpsItem.numericValue) : null;
+                          const hasBothAmps = measuredAmps !== null && nameplateAmps !== null && measuredAmps > 0 && nameplateAmps > 0;
+                          const ratio = hasBothAmps ? measuredAmps / nameplateAmps : null;
+
+                          let ampInterpretation: { label: string; explanation: string; color: string } | null = null;
+                          if (hasBothAmps && ratio !== null) {
+                            if (ratio <= 0.9) {
+                              ampInterpretation = {
+                                label: 'Below nameplate (likely normal or lightly loaded)',
+                                explanation: 'Motor amps are well below nameplate. This is usually OK and suggests the motor is not overloaded. Focus on other symptoms (noise, heat, spin test) to judge motor health.',
+                                color: 'text-green-400'
+                              };
+                            } else if (ratio <= 1.1) {
+                              ampInterpretation = {
+                                label: 'Near nameplate (normal)',
+                                explanation: 'Motor amps are close to nameplate, which is typically normal. If the motor is noisy, hot, or has a burnt smell, that\'s more indicative than amp draw alone.',
+                                color: 'text-green-400'
+                              };
+                            } else if (ratio <= 1.3) {
+                              ampInterpretation = {
+                                label: 'Slightly high (possible overload)',
+                                explanation: 'Motor amps are somewhat above nameplate. This can indicate a weak/incorrect capacitor, airflow restriction (dirty coil, blockage), or developing motor bearing issues.',
+                                color: 'text-yellow-400'
+                              };
+                            } else {
+                              ampInterpretation = {
+                                label: 'High amps (motor likely overloaded or failing)',
+                                explanation: 'Motor amps are significantly above nameplate. This strongly suggests the motor is overloaded or failing. Check for coil blockage, incorrect capacitor, mechanical drag, or replace motor if other symptoms (heat/smell/stiff shaft) are present.',
+                                color: 'text-red-400'
+                              };
+                            }
+                          }
+
+                          return (
+                            <div key={fanNum} className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                              <h4 className="text-md font-semibold text-gray-300 mb-4">Fan {fanNum}</h4>
+                              <div className="space-y-4">
+                                {[voltageItem, capacitorItem, spinTestItem, motorTempItem].filter(Boolean).map((item) => (
+                                  <div key={item!.id} className="border-b border-gray-700 pb-3 last:border-b-0">
+                                    <label className="text-gray-200 block mb-2">{item!.text}</label>
+                                    {item!.options && (
+                                      <div className="flex flex-wrap gap-2">
+                                        {item!.options.map((option) => {
+                                          const isSelected = item!.selectedOptions?.includes(option) || item!.selectedOption === option;
+                                          return (
+                                            <button
+                                              key={option}
+                                              onClick={() => updateSelectedOption(currentSectionData.id, item!.id, option)}
+                                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                                isSelected
+                                                  ? 'bg-green-600 text-white'
+                                                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                              }`}
+                                            >
+                                              {option}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                    </div>
+                  ))}
+                                
+                                {/* Optional Motor Amps Check */}
+                                <div className="border-b border-gray-700 pb-3 last:border-b-0">
+                                  <label className="text-gray-200 block mb-2">
+                                    <span className="text-gray-400 text-sm">Optional: </span>Fan motor amp check
+                                  </label>
+                                  <div className="space-y-3">
+                                    {measuredAmpsItem && (
+                                      <div>
+                                        <label className="text-sm text-gray-300 block mb-1">Measured motor amps (A)</label>
+                                        <input
+                                          type="number"
+                                          step="0.1"
+                                          value={measuredAmpsItem.numericValue || ''}
+                                          onChange={(e) => {
+                                            if (!checklist) return;
+                                            setChecklist(prev => {
+                                              if (!prev) return prev;
+                                              return {
+                                                ...prev,
+                                                sections: prev.sections.map(section =>
+                                                  section.id === currentSectionData.id
+                                                    ? {
+                                                        ...section,
+                                                        items: section.items.map(i =>
+                                                          i.id === measuredAmpsItem.id
+                                                            ? { ...i, numericValue: e.target.value }
+                                                            : i
+                                                        )
+                                                      }
+                                                    : section
+                                                )
+                                              };
+                                            });
+                                          }}
+                                          placeholder="Enter measured amps"
+                                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                </div>
+                                    )}
+                                    {nameplateAmpsItem && (
+                                      <div>
+                                        <label className="text-sm text-gray-300 block mb-1">Nameplate motor amps (A)</label>
+                                        <input
+                                          type="number"
+                                          step="0.1"
+                                          value={nameplateAmpsItem.numericValue || ''}
+                                          onChange={(e) => {
+                                            if (!checklist) return;
+                                            setChecklist(prev => {
+                                              if (!prev) return prev;
+                                              return {
+                                                ...prev,
+                                                sections: prev.sections.map(section =>
+                                                  section.id === currentSectionData.id
+                                                    ? {
+                                                        ...section,
+                                                        items: section.items.map(i =>
+                                                          i.id === nameplateAmpsItem.id
+                                                            ? { ...i, numericValue: e.target.value }
+                                                            : i
+                                                        )
+                                                      }
+                                                    : section
+                                                )
+                                              };
+                                            });
+                                          }}
+                                          placeholder="Enter nameplate amps"
+                                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                      </div>
+                                    )}
+                                    
+                                    {/* Amp Interpretation */}
+                                    {ampInterpretation ? (
+                                      <div className="mt-3 p-3 bg-gray-900/50 border border-gray-700 rounded-lg">
+                                        <div className={`text-sm font-medium ${ampInterpretation.color} mb-1`}>
+                                          {ampInterpretation.label}
+                                        </div>
+                                        <div className="text-xs text-gray-400">
+                                          {ampInterpretation.explanation}
+                                        </div>
+                                      </div>
+                                    ) : (measuredAmpsItem?.numericValue || nameplateAmpsItem?.numericValue) ? (
+                                      <div className="mt-3 text-xs text-gray-500 italic">
+                                        Enter both measured and nameplate amps to see interpretation (optional).
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
                 
                 {/* Evaluation and outcome message */}
                 {(() => {
@@ -3340,7 +4261,6 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                   const fan2Status = getValue('cd-fan-2-status');
                   const fan3Status = getValue('cd-fan-3-status');
                   const coilVisual = getValue('cd-coil-visual');
-                  const coilCleaned = getValue('cd-coil-cleaned');
                   const fansRunning = getValue('cd-fans-running');
                   const coilClear = getValue('cd-coil-clear');
                   const headPressure = getValue('cd-head-pressure');
@@ -3361,8 +4281,7 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                     (fan1Status === 'Running' || !fan1Status) &&
                     (fan2Status === 'Running' || fan2Status === 'N/A (single fan unit)' || !fan2Status) &&
                     (fan3Status === 'Running' || fan3Status === 'N/A' || !fan3Status) &&
-                    (coilVisual === 'Clean' || coilVisual === 'Dusty') &&
-                    coilCleaned === 'No';
+                    (coilVisual === 'Clean' || coilVisual === 'Dusty');
                   
                   // Get deltaT from Cooling Checks section to suggest next steps
                   const coolingChecksSection = checklist.sections.find(s => s.title === 'Cooling Checks');
@@ -3408,6 +4327,39 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                   return null;
                 })()}
                 
+                {/* Primary cause question - rendered last */}
+                {currentSectionData.items.filter(item => item.id === 'cd-primary-cause-found').map((item) => (
+                  <div key={item.id} className="mt-8 mb-6 border-t border-gray-700 pt-6">
+                    <div className="border-b border-gray-700 pb-3">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-1">
+                          <label className="text-gray-200 block mb-2 text-lg font-semibold">{item.text}</label>
+                          {item.options && (
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {item.options.map((option) => {
+                                const isSelected = item.selectedOptions?.includes(option) || item.selectedOption === option;
+                                return (
+                                  <button
+                                    key={option}
+                                    onClick={() => updateSelectedOption(currentSectionData.id, item.id, option)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                      isSelected
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                    }`}
+                                  >
+                                    {option}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
                 {/* Primary cause found question logic */}
                 {(() => {
                   if (!checklist) return null;
@@ -3418,12 +4370,53 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
                   
                   const primaryCauseFound = getValue('cd-primary-cause-found');
                   if (primaryCauseFound === 'Yes') {
+                    // Collect completed action items for auto-import into wrap-up notes
+                    const completedActionItems = currentSectionData.items
+                      .filter(item => item.isActionItem && item.checked)
+                      .map(item => item.text);
+                    
                     return (
                       <div className="mt-6 p-4 bg-green-900/30 border border-green-700 rounded-lg">
                         <p className="text-sm font-medium text-green-200 mb-1">✓ Primary cause identified</p>
                         <p className="text-xs text-green-300 mb-3">Root cause: Condenser issue. You can proceed to wrap up or continue with additional checks if needed.</p>
+                        {completedActionItems.length > 0 && (
+                          <p className="text-xs text-green-300 mb-3">
+                            Completed actions will be auto-imported into wrap-up notes: {completedActionItems.join(', ')}
+                          </p>
+                        )}
                         <button
                           onClick={() => {
+                            // Auto-import completed action items into wrap-up notes
+                            const allCompletedActionItems: string[] = [];
+                            
+                            // Collect from Airflow diagnostics
+                            const airflowSection = checklist.sections.find(s => s.title === 'Airflow diagnostics');
+                            if (airflowSection) {
+                              const airflowActionItems = airflowSection.items
+                                .filter(item => item.isActionItem && item.checked)
+                                .map(item => item.text);
+                              allCompletedActionItems.push(...airflowActionItems);
+                            }
+                            
+                            // Collect from Condenser diagnostics
+                            const condenserSection = checklist.sections.find(s => s.title === 'Condenser diagnostics');
+                            if (condenserSection) {
+                              const condenserActionItems = condenserSection.items
+                                .filter(item => item.isActionItem && item.checked)
+                                .map(item => item.text);
+                              allCompletedActionItems.push(...condenserActionItems);
+                            }
+                            
+                            if (allCompletedActionItems.length > 0) {
+                              const actionItemsText = allCompletedActionItems.map(item => `• ${item}`).join('\n');
+                              setWrapUpNotes(prev => {
+                                const existing = prev.trim();
+                                return existing 
+                                  ? `${existing}\n\nCompleted Actions:\n${actionItemsText}`
+                                  : `Completed Actions:\n${actionItemsText}`;
+                              });
+                            }
+                            
                             const wrapUpSection = checklist.sections.find(s => s.title === 'Wrap up');
                             if (wrapUpSection) {
                               const index = checklist.sections.findIndex(s => s.id === wrapUpSection.id);

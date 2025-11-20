@@ -111,6 +111,18 @@ export function generateHypotheses(ctx: DiagnosticContext): Hypothesis[] {
 	return out.sort((a, b) => b.confidence - a.confidence);
 }
 
+export interface CondenserFanAmpData {
+	fanNumber: number;
+	measuredAmps?: number;
+	nameplateAmps?: number;
+	ratio?: number; // calculated: measuredAmps / nameplateAmps
+}
+
+export interface CondenserFanBladeData {
+	fanNumber: number;
+	bladeCondition?: OptionValue; // 'Intact' | 'Damaged' | 'Hitting shroud' | 'Not checked'
+}
+
 export interface RTUCoolingChecksContext {
 	supplyFanRunning?: OptionValue; // 'Yes' | 'No' | 'Intermittent' | 'Not sure'
 	supplyAirflowStrength?: OptionValue; // 'Strong' | 'Weak' | 'None' | 'Not checked'
@@ -122,6 +134,8 @@ export interface RTUCoolingChecksContext {
 	noiseVibration?: OptionValue; // 'None' | 'Fan noise' | 'Compressor noise' | 'Vibration' | 'Other'
 	returnAirTemp?: number;
 	supplyAirTemp?: number;
+	condenserFanAmps?: CondenserFanAmpData[]; // Optional amp data for suspect condenser fans
+	condenserFanBlades?: CondenserFanBladeData[]; // Optional blade condition data for condenser fans
 }
 
 export interface RTUHeatingChecksContext {
@@ -199,6 +213,49 @@ export function generateRTUCoolingHypotheses(ctx: RTUCoolingChecksContext): Hypo
 	if (ctx.noiseVibration === 'Fan noise') {
 		scores.condenser += 2;
 		reasons.condenser.push('Fan noise detected');
+	}
+	
+	// B.1. Condenser fan blade condition scoring (optional, only if data is present)
+	if (ctx.condenserFanBlades && ctx.condenserFanBlades.length > 0) {
+		ctx.condenserFanBlades.forEach((bladeData) => {
+			if (bladeData.bladeCondition === 'Damaged' || bladeData.bladeCondition === 'Hitting shroud') {
+				// Bump condenser score for blade issues
+				scores.condenser += 2;
+				if (bladeData.bladeCondition === 'Damaged') {
+					reasons.condenser.push(`Fan ${bladeData.fanNumber} blade damaged`);
+				} else if (bladeData.bladeCondition === 'Hitting shroud') {
+					reasons.condenser.push(`Fan ${bladeData.fanNumber} blade hitting shroud`);
+				}
+			}
+		});
+	}
+	
+	// B.2. Condenser fan amp scoring (optional, only if data is present)
+	if (ctx.condenserFanAmps && ctx.condenserFanAmps.length > 0) {
+		let hasHighAmps = false;
+		let hasModerateAmps = false;
+		
+		ctx.condenserFanAmps.forEach((ampData) => {
+			if (ampData.ratio !== undefined && ampData.measuredAmps && ampData.measuredAmps > 0 && ampData.nameplateAmps && ampData.nameplateAmps > 0) {
+				if (ampData.ratio > 1.3) {
+					// High amps - strong evidence of condenser problem
+					scores.condenser += 4;
+					hasHighAmps = true;
+				} else if (ampData.ratio > 1.1) {
+					// Moderate amps - moderate evidence
+					scores.condenser += 2;
+					hasModerateAmps = true;
+				}
+				// ratio <= 1.1: no additional score (normal amps don't boost condenser score)
+			}
+		});
+		
+		// Add to reason text if high amps contributed
+		if (hasHighAmps) {
+			reasons.condenser.push('Condenser fan amps are above nameplate, suggesting motor overload or restriction');
+		} else if (hasModerateAmps) {
+			reasons.condenser.push('Condenser fan amps slightly elevated');
+		}
 	}
 	
 	// C. Compressor/start issue scoring
@@ -282,6 +339,20 @@ export function generateRTUCoolingHypotheses(ctx: RTUCoolingChecksContext): Hypo
 	} else if (normalCount >= 3 && !hasMajorIssue) {
 		scores.control += 3;
 		reasons.control.push('Most components appear normal');
+	}
+	
+	// Tie-breaker: Use amp data to favor condenser over airflow when both are plausible
+	// This helps when filters are moderately dirty and condenser coil is moderately dirty
+	if (ctx.condenserFanAmps && ctx.condenserFanAmps.length > 0 && 
+		scores.airflow > 0 && scores.condenser > 0 && 
+		Math.abs(scores.airflow - scores.condenser) <= 2) {
+		// Check if any fan has elevated amps (ratio > 1.1)
+		const hasElevatedAmps = ctx.condenserFanAmps.some(amp => amp.ratio !== undefined && amp.ratio > 1.1);
+		if (hasElevatedAmps) {
+			// Slightly favor condenser over airflow when amps are elevated
+			scores.condenser += 1;
+		}
+		// If amps are normal (ratio <= 1.1), don't change the balance
 	}
 	
 	// Convert scores to hypotheses

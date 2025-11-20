@@ -450,55 +450,164 @@ export const notCooling: ChecklistItem[] = [
     id: 'rtuCondenserDiagnostics',
     title: 'Condenser diagnostics',
     items: [
-      // Condenser fans
+      // Number of condenser fans
+      {
+        id: 'cd-fan-count',
+        text: 'How many condenser fans are there?',
+        checked: false,
+        numericValue: '',
+        unit: ''
+      },
+      // Condenser fans (conditional on count)
       {
         id: 'cd-fan-1-status',
         text: 'Condenser fan 1 status',
         checked: false,
-        options: ['Running', 'Not running', 'Noisy', 'Intermittent'],
-        selectedOptions: []
+        options: ['Running', 'Not running', 'Noisy', 'Intermittent', 'Running in reverse'],
+        selectedOptions: [],
+        conditionalOn: {
+          itemId: 'cd-fan-count',
+          condition: (value: string) => {
+            const count = parseInt(value);
+            return !isNaN(count) && count >= 1;
+          }
+        }
       },
       {
         id: 'cd-fan-1-blade',
         text: 'Condenser fan 1 blade condition',
         checked: false,
         options: ['Intact', 'Damaged', 'Hitting shroud', 'Not checked'],
-        selectedOptions: []
+        selectedOptions: [],
+        conditionalOn: {
+          itemId: 'cd-fan-count',
+          condition: (value: string) => {
+            const count = parseInt(value);
+            return !isNaN(count) && count >= 1;
+          }
+        }
       },
       {
-        id: 'cd-fan-1-rotation',
-        text: 'Condenser fan 1 rotation (for 3-phase)',
+        id: 'cd-fan-1-blade-damaged-action',
+        text: 'Repaired or replaced damaged blade',
         checked: false,
-        options: ['Correct', 'Reversed', 'Not checked'],
-        selectedOptions: []
+        conditionalOn: {
+          itemId: 'cd-fan-1-blade',
+          option: 'Damaged'
+        },
+        isActionItem: true,
+        images: []
+      },
+      {
+        id: 'cd-fan-1-blade-hitting-action',
+        text: 'Fixed blade contact with shroud',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-fan-1-blade',
+          option: 'Hitting shroud'
+        },
+        isActionItem: true,
+        images: []
       },
       {
         id: 'cd-fan-2-status',
         text: 'Condenser fan 2 status',
         checked: false,
-        options: ['Running', 'Not running', 'Noisy', 'Intermittent', 'N/A (single fan unit)'],
-        selectedOptions: []
+        options: ['Running', 'Not running', 'Noisy', 'Intermittent', 'Running in reverse'],
+        selectedOptions: [],
+        conditionalOn: {
+          itemId: 'cd-fan-count',
+          condition: (value: string) => {
+            const count = parseInt(value);
+            return !isNaN(count) && count >= 2;
+          }
+        }
       },
       {
         id: 'cd-fan-2-blade',
         text: 'Condenser fan 2 blade condition',
         checked: false,
         options: ['Intact', 'Damaged', 'Hitting shroud', 'Not checked'],
-        selectedOptions: []
+        selectedOptions: [],
+        conditionalOn: {
+          itemId: 'cd-fan-count',
+          condition: (value: string) => {
+            const count = parseInt(value);
+            return !isNaN(count) && count >= 2;
+          }
+        }
       },
       {
-        id: 'cd-fan-2-rotation',
-        text: 'Condenser fan 2 rotation (for 3-phase)',
+        id: 'cd-fan-2-blade-damaged-action',
+        text: 'Repaired or replaced damaged blade',
         checked: false,
-        options: ['Correct', 'Reversed', 'Not checked'],
-        selectedOptions: []
+        conditionalOn: {
+          itemId: 'cd-fan-2-blade',
+          option: 'Damaged'
+        },
+        isActionItem: true,
+        images: []
+      },
+      {
+        id: 'cd-fan-2-blade-hitting-action',
+        text: 'Fixed blade contact with shroud',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-fan-2-blade',
+          option: 'Hitting shroud'
+        },
+        isActionItem: true,
+        images: []
       },
       {
         id: 'cd-fan-3-status',
-        text: 'Condenser fan 3 status (if applicable)',
+        text: 'Condenser fan 3 status',
         checked: false,
-        options: ['Running', 'Not running', 'Noisy', 'Intermittent', 'N/A'],
-        selectedOptions: []
+        options: ['Running', 'Not running', 'Noisy', 'Intermittent', 'Running in reverse'],
+        selectedOptions: [],
+        conditionalOn: {
+          itemId: 'cd-fan-count',
+          condition: (value: string) => {
+            const count = parseInt(value);
+            return !isNaN(count) && count >= 3;
+          }
+        }
+      },
+      {
+        id: 'cd-fan-3-blade',
+        text: 'Condenser fan 3 blade condition',
+        checked: false,
+        options: ['Intact', 'Damaged', 'Hitting shroud', 'Not checked'],
+        selectedOptions: [],
+        conditionalOn: {
+          itemId: 'cd-fan-count',
+          condition: (value: string) => {
+            const count = parseInt(value);
+            return !isNaN(count) && count >= 3;
+          }
+        }
+      },
+      {
+        id: 'cd-fan-3-blade-damaged-action',
+        text: 'Repaired or replaced damaged blade',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-fan-3-blade',
+          option: 'Damaged'
+        },
+        isActionItem: true,
+        images: []
+      },
+      {
+        id: 'cd-fan-3-blade-hitting-action',
+        text: 'Fixed blade contact with shroud',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-fan-3-blade',
+          option: 'Hitting shroud'
+        },
+        isActionItem: true,
+        images: []
       },
       // Condenser coil
       {
@@ -510,37 +619,229 @@ export const notCooling: ChecklistItem[] = [
         images: []
       },
       {
-        id: 'cd-coil-cleaned',
-        text: 'Was coil cleaned during this visit?',
+        id: 'cd-coil-clean-info',
+        text: 'Coil appears clean. Condenser airflow restriction is unlikely the cause.',
         checked: false,
-        options: ['Yes', 'No'],
-        selectedOptions: []
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Clean'
+        },
+        isInfoMessage: true
       },
-      // Motor/capacitor (conditional on fan not running)
       {
-        id: 'cd-fan-voltage',
-        text: 'Voltage at fan terminals (if any fan not running)',
+        id: 'cd-coil-dusty-action',
+        text: 'Performed light cleaning',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Dusty'
+        },
+        isActionItem: true,
+        images: []
+      },
+      {
+        id: 'cd-coil-dusty-info',
+        text: 'Coil is slightly dusty. Light cleaning may improve efficiency, but this alone usually does not cause a no-cooling condition.',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Dusty'
+        },
+        isInfoMessage: true
+      },
+      {
+        id: 'cd-coil-clogged-info',
+        text: 'Heavily clogged coil — this is a common cause of poor cooling or high head pressure. Coil should be cleaned before continuing deeper diagnostics.',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Heavily clogged'
+        },
+        isInfoMessage: true
+      },
+      {
+        id: 'cd-coil-clogged-pressure-before-discharge',
+        text: 'Pressures before cleaning: Discharge',
+        checked: false,
+        unit: 'psig',
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Heavily clogged'
+        }
+      },
+      {
+        id: 'cd-coil-clogged-action',
+        text: 'Thoroughly cleaned condenser coil',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Heavily clogged'
+        },
+        isActionItem: true,
+        images: []
+      },
+      {
+        id: 'cd-coil-clogged-pressure-after-discharge',
+        text: 'Pressures after cleaning: Discharge',
+        checked: false,
+        unit: 'psig',
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Heavily clogged'
+        }
+      },
+      {
+        id: 'cd-coil-debris-info',
+        text: 'Debris is blocking the coil face. Removing the obstruction is usually required to restore proper condenser airflow.',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Blocked by debris'
+        },
+        isInfoMessage: true
+      },
+      {
+        id: 'cd-coil-debris-action',
+        text: 'Removed debris from coil',
+        checked: false,
+        conditionalOn: {
+          itemId: 'cd-coil-visual',
+          option: 'Blocked by debris'
+        },
+        isActionItem: true,
+        images: []
+      },
+      // Section 2: Electrical / motor drill down (conditional on fans not running or noisy)
+      // These will be rendered conditionally in the page component
+      {
+        id: 'cd-safety-warning',
+        text: 'Turn off unit and lock out the disconnect before continuing.',
+        checked: false,
+        isBlockingMessage: true
+      },
+      // Per-fan electrical checks (will be conditionally rendered)
+      {
+        id: 'cd-fan-1-voltage',
+        text: 'Fan 1: Voltage at fan terminals',
         checked: false,
         options: ['Present', 'Not present', 'Not checked'],
         selectedOptions: []
       },
       {
-        id: 'cd-capacitor',
-        text: 'Capacitor condition or replacement',
+        id: 'cd-fan-1-capacitor',
+        text: 'Fan 1: Capacitor condition',
         checked: false,
         options: ['Good', 'Bad / replaced', 'Not checked'],
         selectedOptions: []
       },
       {
-        id: 'cd-fan-nameplate-amps',
-        text: 'Fan motor nameplate amps (optional)',
+        id: 'cd-fan-1-spin-test',
+        text: 'Fan 1: Spin test - does blade spin freely when manually pushed?',
+        checked: false,
+        options: ['Yes', 'No', 'Not checked'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-1-motor-temp',
+        text: 'Fan 1: Does the motor feel excessively hot or have a burnt smell?',
+        checked: false,
+        options: ['Normal temp / no smell', 'Hot to the touch', 'Burnt electrical smell'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-1-measured-amps',
+        text: 'Fan 1: Measured motor amps (A)',
         checked: false,
         numericValue: '',
         unit: 'A'
       },
       {
-        id: 'cd-fan-measured-amps',
-        text: 'Fan motor measured amps (optional)',
+        id: 'cd-fan-1-nameplate-amps',
+        text: 'Fan 1: Nameplate motor amps (A)',
+        checked: false,
+        numericValue: '',
+        unit: 'A'
+      },
+      {
+        id: 'cd-fan-2-voltage',
+        text: 'Fan 2: Voltage at fan terminals',
+        checked: false,
+        options: ['Present', 'Not present', 'Not checked'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-2-capacitor',
+        text: 'Fan 2: Capacitor condition',
+        checked: false,
+        options: ['Good', 'Bad / replaced', 'Not checked'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-2-spin-test',
+        text: 'Fan 2: Spin test - does blade spin freely when manually pushed?',
+        checked: false,
+        options: ['Yes', 'No', 'Not checked'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-2-motor-temp',
+        text: 'Fan 2: Does the motor feel excessively hot or have a burnt smell?',
+        checked: false,
+        options: ['Normal temp / no smell', 'Hot to the touch', 'Burnt electrical smell'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-2-measured-amps',
+        text: 'Fan 2: Measured motor amps (A)',
+        checked: false,
+        numericValue: '',
+        unit: 'A'
+      },
+      {
+        id: 'cd-fan-2-nameplate-amps',
+        text: 'Fan 2: Nameplate motor amps (A)',
+        checked: false,
+        numericValue: '',
+        unit: 'A'
+      },
+      {
+        id: 'cd-fan-3-voltage',
+        text: 'Fan 3: Voltage at fan terminals',
+        checked: false,
+        options: ['Present', 'Not present', 'Not checked'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-3-capacitor',
+        text: 'Fan 3: Capacitor condition',
+        checked: false,
+        options: ['Good', 'Bad / replaced', 'Not checked'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-3-spin-test',
+        text: 'Fan 3: Spin test - does blade spin freely when manually pushed?',
+        checked: false,
+        options: ['Yes', 'No', 'Not checked'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-3-motor-temp',
+        text: 'Fan 3: Does the motor feel excessively hot or have a burnt smell?',
+        checked: false,
+        options: ['Normal temp / no smell', 'Hot to the touch', 'Burnt electrical smell'],
+        selectedOptions: []
+      },
+      {
+        id: 'cd-fan-3-measured-amps',
+        text: 'Fan 3: Measured motor amps (A)',
+        checked: false,
+        numericValue: '',
+        unit: 'A'
+      },
+      {
+        id: 'cd-fan-3-nameplate-amps',
+        text: 'Fan 3: Nameplate motor amps (A)',
         checked: false,
         numericValue: '',
         unit: 'A'
