@@ -14,6 +14,7 @@ export default function AuthButton() {
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -76,7 +77,12 @@ export default function AuthButton() {
   };
 
   const handleSignOut = async () => {
+    setShowSignOutConfirm(true);
+  };
+
+  const confirmSignOut = async () => {
     await supabase.auth.signOut();
+    setShowSignOutConfirm(false);
     router.refresh();
   };
 
@@ -441,6 +447,43 @@ export default function AuthButton() {
               >
                 Get Started
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sign Out Confirmation Modal */}
+      {showSignOutConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Sign Out?
+              </h2>
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to sign out? You'll need to sign in again to access your account.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowSignOutConfirm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmSignOut}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
