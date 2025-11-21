@@ -41,6 +41,7 @@ export default function TechnicianServiceCallsPage() {
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedServiceCall, setSelectedServiceCall] = useState<ServiceCall | null>(null);
+  const [filter, setFilter] = useState<'all' | 'service_call' | 'preventive_maintenance'>('all');
   const supabase = createClient();
 
   useEffect(() => {
@@ -209,7 +210,46 @@ export default function TechnicianServiceCallsPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {serviceCalls.length === 0 ? (
+        {/* Filter Buttons */}
+        <div className="mb-6 flex gap-2">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            All Jobs
+          </button>
+          <button
+            onClick={() => setFilter('service_call')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === 'service_call'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Service Calls
+          </button>
+          <button
+            onClick={() => setFilter('preventive_maintenance')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === 'preventive_maintenance'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Preventive Maintenance
+          </button>
+        </div>
+
+        {(() => {
+          const filteredCalls = filter === 'all' 
+            ? serviceCalls 
+            : serviceCalls.filter(call => call.type === filter);
+          
+          return filteredCalls.length === 0 ? (
           <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
             <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
@@ -222,12 +262,16 @@ export default function TechnicianServiceCallsPage() {
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">No Jobs Found</h3>
             <p className="text-gray-400">
-              This technician hasn't completed any jobs yet.
+              {filter === 'all'
+                ? "This technician hasn't completed any jobs yet."
+                : filter === 'service_call'
+                ? "This technician hasn't completed any service calls yet."
+                : "This technician hasn't completed any preventive maintenance jobs yet."}
             </p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {serviceCalls.map((call) => (
+          ) : (
+            <div className="space-y-4">
+              {filteredCalls.map((call) => (
               <div
                 key={`${call.type}-${call.id}`}
                 className="bg-gray-800 rounded-lg border border-gray-700 p-6 hover:border-gray-600 transition-colors cursor-pointer"
@@ -266,9 +310,10 @@ export default function TechnicianServiceCallsPage() {
                   </svg>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Service Call Details Modal */}
