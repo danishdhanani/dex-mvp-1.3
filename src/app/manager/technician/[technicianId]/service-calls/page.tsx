@@ -9,9 +9,11 @@ import Link from 'next/link';
 interface ServiceCall {
   id: number;
   created_at: string;
+  type: 'service_call' | 'preventive_maintenance';
   details: {
     unitType?: string;
     issueId?: string;
+    unitId?: string;
     sections?: any[];
     readings?: any;
     wrapUpNotes?: string;
@@ -106,11 +108,28 @@ export default function TechnicianServiceCallsPage() {
         .eq('user_id', technicianId)
         .order('created_at', { ascending: false });
 
+      // Fetch preventive maintenance jobs for this technician
+      const { data: pmJobs, error: pmError } = await supabase
+        .from('preventive_maintenance')
+        .select('id, created_at, details')
+        .eq('user_id', technicianId)
+        .order('created_at', { ascending: false });
+
       if (callsError) {
         console.error('Error fetching service calls:', callsError);
-      } else {
-        setServiceCalls(calls || []);
       }
+
+      if (pmError) {
+        console.error('Error fetching preventive maintenance jobs:', pmError);
+      }
+
+      // Combine and sort by date
+      const allJobs: ServiceCall[] = [
+        ...(calls || []).map(call => ({ ...call, type: 'service_call' as const })),
+        ...(pmJobs || []).map(job => ({ ...job, type: 'preventive_maintenance' as const })),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setServiceCalls(allJobs);
 
       setLoading(false);
     };
@@ -131,7 +150,7 @@ export default function TechnicianServiceCallsPage() {
               <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <p className="text-gray-400">Loading service calls...</p>
+          <p className="text-gray-400">Loading jobs...</p>
         </div>
       </div>
     );
@@ -179,7 +198,7 @@ export default function TechnicianServiceCallsPage() {
                 </svg>
               </Link>
               <div>
-                <h1 className="text-xl font-bold text-white">Service Calls</h1>
+                <h1 className="text-xl font-bold text-white">Jobs</h1>
                 <p className="text-sm text-gray-400">{technician?.name || 'Technician'}</p>
               </div>
             </div>
@@ -201,24 +220,35 @@ export default function TechnicianServiceCallsPage() {
                 <polyline points="10 9 9 9 8 9"/>
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">No Service Calls Found</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">No Jobs Found</h3>
             <p className="text-gray-400">
-              This technician hasn't completed any service calls yet.
+              This technician hasn't completed any jobs yet.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {serviceCalls.map((call) => (
               <div
-                key={call.id}
+                key={`${call.type}-${call.id}`}
                 className="bg-gray-800 rounded-lg border border-gray-700 p-6 hover:border-gray-600 transition-colors cursor-pointer"
                 onClick={() => setSelectedServiceCall(call)}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-1">
-                      {formatUnitType(call.details?.unitType)} - {formatIssueId(call.details?.issueId)}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-lg font-semibold text-white">
+                        {call.type === 'preventive_maintenance' 
+                          ? `PM - ${call.details?.unitId || 'Unknown Unit'}`
+                          : `${formatUnitType(call.details?.unitType)} - ${formatIssueId(call.details?.issueId)}`}
+                      </h3>
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        call.type === 'preventive_maintenance' 
+                          ? 'bg-green-600/20 text-green-400' 
+                          : 'bg-blue-600/20 text-blue-400'
+                      }`}>
+                        {call.type === 'preventive_maintenance' ? 'PM' : 'Service Call'}
+                      </span>
+                    </div>
                     <p className="text-sm text-gray-400">
                       {formatDate(call.created_at)}
                     </p>
@@ -253,9 +283,20 @@ export default function TechnicianServiceCallsPage() {
           >
             <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-white">
-                  {formatUnitType(selectedServiceCall.details?.unitType)} - {formatIssueId(selectedServiceCall.details?.issueId)}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-white">
+                    {selectedServiceCall.type === 'preventive_maintenance'
+                      ? `PM - ${selectedServiceCall.details?.unitId || 'Unknown Unit'}`
+                      : `${formatUnitType(selectedServiceCall.details?.unitType)} - ${formatIssueId(selectedServiceCall.details?.issueId)}`}
+                  </h2>
+                  <span className={`text-xs px-2 py-0.5 rounded ${
+                    selectedServiceCall.type === 'preventive_maintenance' 
+                      ? 'bg-green-600/20 text-green-400' 
+                      : 'bg-blue-600/20 text-blue-400'
+                  }`}>
+                    {selectedServiceCall.type === 'preventive_maintenance' ? 'Preventive Maintenance' : 'Service Call'}
+                  </span>
+                </div>
                 <p className="text-sm text-gray-400 mt-1">
                   {formatDate(selectedServiceCall.created_at)}
                 </p>
@@ -272,8 +313,8 @@ export default function TechnicianServiceCallsPage() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Custom Issue Description */}
-              {selectedServiceCall.details?.customIssueDescription && (
+              {/* Custom Issue Description - Only for service calls */}
+              {selectedServiceCall.type === 'service_call' && selectedServiceCall.details?.customIssueDescription && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-300 mb-2">Issue Description</h3>
                   <p className="text-white bg-gray-700 rounded-lg p-3">
@@ -294,7 +335,7 @@ export default function TechnicianServiceCallsPage() {
                           <span className="text-gray-400 text-sm">
                             {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}:
                           </span>
-                          <span className="text-white ml-2">{value}</span>
+                          <span className="text-white ml-2">{String(value)}</span>
                         </div>
                       );
                     })}
@@ -352,8 +393,8 @@ export default function TechnicianServiceCallsPage() {
                 </div>
               )}
 
-              {/* Wrap Up Notes */}
-              {selectedServiceCall.details?.wrapUpNotes && (
+              {/* Wrap Up Notes - Only for service calls */}
+              {selectedServiceCall.type === 'service_call' && selectedServiceCall.details?.wrapUpNotes && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-300 mb-2">Wrap Up Notes</h3>
                   <p className="text-white bg-gray-700 rounded-lg p-3">
