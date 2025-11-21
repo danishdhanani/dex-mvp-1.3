@@ -151,7 +151,11 @@ export default function ManagerDashboard() {
                 </thead>
                 <tbody className="divide-y divide-gray-700">
                   {technicians.map((technician) => (
-                    <tr key={technician.id} className="hover:bg-gray-700/50 transition-colors">
+                    <tr
+                      key={technician.id}
+                      className="hover:bg-gray-700/50 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/manager/technician/${technician.id}/service-calls`)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center mr-3">
