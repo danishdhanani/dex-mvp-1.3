@@ -185,7 +185,7 @@ export async function loadServiceCallChecklist(
 export async function savePMChecklist(
   unitId: string,
   data: PMChecklistData
-): Promise<{ id: string } | null> {
+): Promise<{ id: number } | null> {
   const supabase = createClient();
   
   // Get current user
@@ -194,29 +194,45 @@ export async function savePMChecklist(
     throw new Error('User must be authenticated to save checklists');
   }
 
-  // Check if a checklist already exists
+  // Get user's org_id from users table
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('org_id')
+    .eq('id', user.id)
+    .single();
+
+  if (userError) {
+    console.error('Error fetching user org_id:', userError);
+    // Continue without org_id if there's an error
+  }
+
+  // Check if a checklist already exists for this user/unit combination
+  // Query by checking details JSONB for unitId
   const { data: existing } = await supabase
-    .from('pm_checklists')
+    .from('preventive_maintenance')
     .select('id')
     .eq('user_id', user.id)
-    .eq('unit_id', unitId)
+    .eq('details->>unitId', unitId)
     .maybeSingle();
 
-  // Store everything in the data JSONB column
+  // Store everything in the details JSONB column
+  const details = {
+    unitId,
+    sections: data.sections,
+    readings: data.readings,
+    currentSection: data.currentSection || 1,
+  };
+
   const record = {
     user_id: user.id,
-    unit_id: unitId,
-    data: {
-      sections: data.sections,
-      readings: data.readings,
-      currentSection: data.currentSection || 1,
-    },
+    org_id: userData?.org_id || null,
+    details,
   };
 
   if (existing) {
     // Update existing record
     const { data: updated, error } = await supabase
-      .from('pm_checklists')
+      .from('preventive_maintenance')
       .update(record)
       .eq('id', existing.id)
       .select('id')
@@ -231,7 +247,7 @@ export async function savePMChecklist(
   } else {
     // Insert new record
     const { data: inserted, error } = await supabase
-      .from('pm_checklists')
+      .from('preventive_maintenance')
       .insert(record)
       .select('id')
       .single();
@@ -260,10 +276,12 @@ export async function loadPMChecklist(
   }
 
   const { data, error } = await supabase
-    .from('pm_checklists')
-    .select('*')
+    .from('preventive_maintenance')
+    .select('details')
     .eq('user_id', user.id)
-    .eq('unit_id', unitId)
+    .eq('details->>unitId', unitId)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -271,12 +289,12 @@ export async function loadPMChecklist(
     return null;
   }
 
-  if (!data) {
+  if (!data || !data.details) {
     return null;
   }
 
-  // Extract all data from the JSONB column
-  const checklistData = data.data || {};
+  // Extract all data from the details JSONB column
+  const checklistData = data.details;
   
   return {
     sections: checklistData.sections || [],

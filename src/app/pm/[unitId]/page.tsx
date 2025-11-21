@@ -541,14 +541,32 @@ export default function PMChecklistPage({ params }: { params: Promise<{ unitId: 
 
             {/* Save Button */}
             <button
-              onClick={() => {
-                // Save to localStorage and navigate back
+              onClick={async () => {
                 if (checklist) {
-                  const dataToSave = {
-                    sections: checklist.sections,
-                    readings: readings
-                  };
-                  localStorage.setItem(`pm-checklist-${unitId}`, JSON.stringify(dataToSave));
+                  try {
+                    // Save to database
+                    const { savePMChecklist } = await import('@/lib/checklist-storage');
+                    await savePMChecklist(unitId, {
+                      sections: checklist.sections,
+                      readings: readings,
+                      currentSection: currentSection,
+                    });
+                    
+                    // Also save to localStorage as backup
+                    const dataToSave = {
+                      sections: checklist.sections,
+                      readings: readings
+                    };
+                    localStorage.setItem(`pm-checklist-${unitId}`, JSON.stringify(dataToSave));
+                  } catch (error) {
+                    console.error('Error saving PM checklist:', error);
+                    // Still save to localStorage as fallback
+                    const dataToSave = {
+                      sections: checklist.sections,
+                      readings: readings
+                    };
+                    localStorage.setItem(`pm-checklist-${unitId}`, JSON.stringify(dataToSave));
+                  }
                 }
                 router.back();
               }}
