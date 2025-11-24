@@ -69,8 +69,15 @@ class DexApp extends StatelessWidget {
         if (settings.name == AppRouter.pmSummary) {
           // TODO: Implement PM summary page
           return MaterialPageRoute(
-            builder: (context) => const Scaffold(
-              body: Center(
+            builder: (context) => Scaffold(
+              appBar: AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                title: const Text('PM Summary'),
+              ),
+              body: const Center(
                 child: Text('PM Summary - Coming Soon'),
               ),
             ),

@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../navigation/app_router.dart';
+import 'issues/issues_page.dart';
 
 class ServiceCallUnitSelectionPage extends StatelessWidget {
   const ServiceCallUnitSelectionPage({super.key});
 
   void _handleUnitTypeSelect(BuildContext context, String unitType) {
     // Navigate to issues selection page for this unit type
-    Navigator.pushNamed(
+    Navigator.push(
       context,
-      '/service-call/issues/$unitType',
+      MaterialPageRoute(
+        builder: (context) => ServiceCallIssuesPage(unitType: unitType),
+      ),
     );
   }
 
