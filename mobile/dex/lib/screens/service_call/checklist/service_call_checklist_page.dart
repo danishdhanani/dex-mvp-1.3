@@ -21,7 +21,7 @@ class ServiceCallChecklistPage extends StatefulWidget {
 }
 
 class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
-  late ServiceCallChecklist _checklist;
+  ServiceCallChecklist? _checklist;
   int _currentSection = 1;
   bool _hypothesesOpen = false;
   List<Hypothesis> _hypotheses = [];
@@ -56,11 +56,12 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
     String itemId,
     ChecklistItemData Function(ChecklistItemData) updater,
   ) {
+    if (_checklist == null) return;
     setState(() {
       _checklist = ServiceCallChecklist(
-        unitType: _checklist.unitType,
-        issueType: _checklist.issueType,
-        sections: _checklist.sections.map((section) {
+        unitType: _checklist!.unitType,
+        issueType: _checklist!.issueType,
+        sections: _checklist!.sections.map((section) {
           if (section.id == sectionId) {
             return ChecklistItem(
               id: section.id,
@@ -152,7 +153,7 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   }
 
   bool _hasActiveBlockingMessage() {
-    final currentSectionData = _checklist.sections[_currentSection - 1];
+    final currentSectionData = _checklist!.sections[_currentSection - 1];
     if (currentSectionData.items.isEmpty) return false;
 
     for (final item in currentSectionData.items) {
@@ -190,7 +191,8 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   }
 
   void _goToSection(int sectionNumber) {
-    if (sectionNumber >= 1 && sectionNumber <= _checklist.sections.length) {
+    if (_checklist == null) return;
+    if (sectionNumber >= 1 && sectionNumber <= _checklist!.sections.length) {
       setState(() {
         _currentSection = sectionNumber;
       });
@@ -251,7 +253,8 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   }
 
   RTUCoolingChecksContext? _buildRTUCoolingChecksContext() {
-    final coolingChecksSection = _checklist.sections.firstWhere(
+    if (_checklist == null) return null;
+    final coolingChecksSection = _checklist!.sections.firstWhere(
       (s) => s.title == 'Cooling Checks',
       orElse: () => ChecklistItem(id: '', title: '', items: []),
     );
@@ -294,7 +297,8 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   }
 
   RTUHeatingChecksContext? _buildRTUHeatingChecksContext() {
-    final heatingChecksSection = _checklist.sections.firstWhere(
+    if (_checklist == null) return null;
+    final heatingChecksSection = _checklist!.sections.firstWhere(
       (s) => s.title == 'Heating Checks',
       orElse: () => ChecklistItem(id: '', title: '', items: []),
     );
@@ -359,9 +363,10 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
     // Check if it's a numeric section ID (for heating diagnostics)
     final numericId = int.tryParse(nextSectionId);
     if (numericId != null) {
-      final index = _checklist.sections.indexWhere((s) => s.id == nextSectionId);
+      if (_checklist == null) return;
+      final index = _checklist!.sections.indexWhere((s) => s.id == nextSectionId);
       if (index >= 0) {
-        final section = _checklist.sections[index];
+        final section = _checklist!.sections[index];
         setState(() {
           if (!_chosenPathTitles.contains(section.title)) {
             _chosenPathTitles.add(section.title);
@@ -385,10 +390,11 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
       }
 
       // Find section by title
-      final index = _checklist.sections.indexWhere((s) => s.title == title);
+      if (_checklist == null) return;
+      final index = _checklist!.sections.indexWhere((s) => s.title == title);
       if (index < 0) {
         // Try to find by ID as fallback
-        final indexById = _checklist.sections.indexWhere((s) => s.id == nextSectionId);
+        final indexById = _checklist!.sections.indexWhere((s) => s.id == nextSectionId);
         if (indexById >= 0) {
           _currentSection = indexById + 1;
         } else {
@@ -402,11 +408,11 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   }
 
   DiagnosticContext? _buildDiagnosticContext() {
-    if (_checklist.sections.isEmpty) return null;
+    if (_checklist == null || _checklist!.sections.isEmpty) return null;
 
     // Section 1 (box check)
-    if (_checklist.sections.isEmpty) return null;
-    final s1 = _checklist.sections[0];
+    if (_checklist == null || _checklist!.sections.isEmpty) return null;
+    final s1 = _checklist!.sections[0];
     ChecklistItemData? getSel(String id) {
       try {
         return s1.items.firstWhere((i) => i.id == id);
@@ -433,14 +439,14 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
     );
 
     // Section 2 (Condenser) - only if it exists
-    if (_checklist.sections.length < 2) {
+    if (_checklist == null || _checklist!.sections.length < 2) {
       return DiagnosticContext(
         visual: visual,
         condenser: CondenserContext(),
       );
     }
 
-    final s2 = _checklist.sections[1];
+    final s2 = _checklist!.sections[1];
     ChecklistItemData? getItem(String id) {
       try {
         return s2.items.firstWhere((i) => i.id == id);
@@ -484,7 +490,8 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
     // Handle wrap-up case
     if (hypothesis.nextSectionId == 'wrap-up') {
       // Navigate to wrap-up section
-      final wrapUpIndex = _checklist.sections.indexWhere((s) => s.title == 'Wrap up');
+      if (_checklist == null) return;
+      final wrapUpIndex = _checklist!.sections.indexWhere((s) => s.title == 'Wrap up');
       if (wrapUpIndex >= 0) {
         setState(() {
           _chosenWrapUp = true;
@@ -526,13 +533,19 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_checklist.sections.isEmpty) {
+    if (_checklist == null || _checklist!.sections.isEmpty) {
       return const Scaffold(
-        body: Center(child: Text('Loading checklist...')),
+        backgroundColor: Color(0xFF111827),
+        body: Center(
+          child: Text(
+            'Loading checklist...',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
       );
     }
 
-    final currentSectionData = _checklist.sections[_currentSection - 1];
+    final currentSectionData = _checklist!.sections[_currentSection - 1];
     final hasBlocking = _hasActiveBlockingMessage();
 
     return Stack(
@@ -580,15 +593,17 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
 
         // Hypothesis Popup (overlay)
         if (_hypothesesOpen)
-          HypothesisPopup(
-            open: _hypothesesOpen,
-            hypotheses: _hypotheses,
-            onClose: () {
-              setState(() {
-                _hypothesesOpen = false;
-              });
-            },
-            onChoose: _handleHypothesisChoose,
+          Positioned.fill(
+            child: HypothesisPopup(
+              open: _hypothesesOpen,
+              hypotheses: _hypotheses,
+              onClose: () {
+                setState(() {
+                  _hypothesesOpen = false;
+                });
+              },
+              onChoose: _handleHypothesisChoose,
+            ),
           ),
       ],
     );
@@ -602,15 +617,17 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
       child: Row(
         children: [
           Text(
-            'Section $_currentSection of ${_checklist.sections.length}',
+            'Section $_currentSection of ${_checklist!.sections.length}',
             style: const TextStyle(color: Colors.white),
           ),
-          const Spacer(),
-          LinearProgressIndicator(
-            value: _currentSection / _checklist.sections.length,
-            backgroundColor: const Color(0xFF374151), // gray-700
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              Color(0xFF2563EB), // blue-600
+          const SizedBox(width: 16),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: _currentSection / _checklist!.sections.length,
+              backgroundColor: const Color(0xFF374151), // gray-700
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF2563EB), // blue-600
+              ),
             ),
           ),
         ],
@@ -933,7 +950,7 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
           if (_currentSection > 1) const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
-              onPressed: _currentSection < _checklist.sections.length
+              onPressed: _checklist != null && _currentSection < _checklist!.sections.length
                   ? () {
                       // Check if we should show hypotheses before going to next section
                       _checkAndShowHypotheses();
@@ -949,7 +966,7 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               child: Text(
-                _currentSection < _checklist.sections.length
+                _checklist != null && _currentSection < _checklist!.sections.length
                     ? 'Next Section'
                     : 'Complete',
               ),

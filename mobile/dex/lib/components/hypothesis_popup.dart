@@ -17,8 +17,6 @@ class HypothesisPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!open) return const SizedBox.shrink();
-
     // Separate wrap-up hypothesis from troubleshooting suggestions
     final wrapUpHypothesis = hypotheses.firstWhere(
       (h) => h.nextSectionId == 'wrap-up',
@@ -39,18 +37,18 @@ class HypothesisPopup extends StatelessWidget {
       color: Colors.black.withOpacity(0.6),
       child: Center(
         child: Container(
-          margin: const EdgeInsets.all(16),
-          constraints: const BoxConstraints(maxWidth: 500),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1F2937), // gray-800
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFF374151), // gray-700
+            margin: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(maxWidth: 500),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F2937), // gray-800
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF374151), // gray-700
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               // Header
               Padding(
                 padding: const EdgeInsets.all(20),
