@@ -5884,13 +5884,38 @@ export default function ServiceCallChecklistPage({ params }: { params: Promise<{
           </div>
 
           <button
-            onClick={() => {
+            onClick={async () => {
               if (checklist) {
-                const dataToSave = {
-                  sections: checklist.sections,
-                  readings: readings
-                };
-                localStorage.setItem(`service-checklist-${unitType}-${issueId}`, JSON.stringify(dataToSave));
+                try {
+                  // Save to database
+                  const { saveServiceCallChecklist } = await import('@/lib/checklist-storage');
+                  await saveServiceCallChecklist(unitType, issueId, {
+                    sections: checklist.sections,
+                    readings: readings,
+                    wrapUpNotes: wrapUpNotes,
+                    chosenWrapUp: chosenWrapUp,
+                    blockingMessageResolutions: blockingMessageResolutions,
+                    customIssueDescription: customIssueDescription,
+                    hypotheses: hypotheses,
+                    chosenPathTitles: chosenPathTitles,
+                    currentSection: currentSection,
+                  });
+                  
+                  // Also save to localStorage as backup
+                  const dataToSave = {
+                    sections: checklist.sections,
+                    readings: readings
+                  };
+                  localStorage.setItem(`service-checklist-${unitType}-${issueId}`, JSON.stringify(dataToSave));
+                } catch (error) {
+                  console.error('Error saving checklist:', error);
+                  // Still save to localStorage as fallback
+                  const dataToSave = {
+                    sections: checklist.sections,
+                    readings: readings
+                  };
+                  localStorage.setItem(`service-checklist-${unitType}-${issueId}`, JSON.stringify(dataToSave));
+                }
               }
               router.back();
             }}
