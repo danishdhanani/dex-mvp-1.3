@@ -553,21 +553,13 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
         Scaffold(
           backgroundColor: const Color(0xFF111827), // gray-900
           appBar: AppBar(
-            title: const Text('Service Call Checklist'),
+            title: Text(_getAppBarTitle()),
             backgroundColor: const Color(0xFF1F2937), // gray-800
             foregroundColor: Colors.white,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
-              if (widget.unitType == 'walkIn' || widget.unitType == 'rtu')
-                IconButton(
-                  icon: const Icon(Icons.lightbulb_outline),
-                  onPressed: _generateHypotheses,
-                  tooltip: 'Generate Hypotheses',
-                ),
-            ],
           ),
           body: Column(
             children: [
@@ -609,29 +601,142 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
     );
   }
 
+  String _getAppBarTitle() {
+    final unitTypeName = _getUnitTypeDisplayName(widget.unitType);
+    final issueName = _getIssueDisplayName(widget.issueId);
+    return '$unitTypeName: $issueName';
+  }
+
+  String _getUnitTypeDisplayName(String unitType) {
+    const names = {
+      'rtu': 'RTU',
+      'split-unit': 'Split Unit',
+      'splitUnit': 'Split Unit',
+      'reach-in': 'Reach-in',
+      'reachIn': 'Reach-in',
+      'walk-in': 'Walk-in',
+      'walkIn': 'Walk-in',
+      'ice-machine': 'Ice Machine',
+      'iceMachine': 'Ice Machine',
+    };
+    return names[unitType] ?? unitType;
+  }
+
+  String _getIssueDisplayName(String issueId) {
+    const names = {
+      'not-cooling': 'Not Cooling',
+      'not-heating': 'Not Heating',
+      'ice-frost-build-up': 'Ice/Frost Build Up',
+      'poor-airflow': 'Poor Airflow',
+      'unit-not-running': 'Unit Not Running',
+      'unit-leaking': 'Unit Leaking',
+      'short-cycling': 'Short Cycling',
+      'zoning-issues': 'Zoning Issues',
+    };
+    return names[issueId] ?? issueId;
+  }
+
   Widget _buildTimeline() {
-    // Simplified timeline - can be enhanced later
+    if (_checklist == null) return const SizedBox.shrink();
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: const Color(0xFF1F2937), // gray-800
-      child: Row(
-        children: [
-          Text(
-            'Section $_currentSection of ${_checklist!.sections.length}',
-            style: const TextStyle(color: Colors.white),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            ...List.generate(_checklist!.sections.length, (index) {
+              final sectionNumber = index + 1;
+              final isActive = sectionNumber == _currentSection;
+              final isCompleted = sectionNumber < _currentSection;
+              
+              return Row(
+                children: [
+                  _buildStepCircle(
+                    number: sectionNumber,
+                    label: _checklist!.sections[index].title,
+                    isActive: isActive,
+                    isCompleted: isCompleted,
+                  ),
+                  if (index < _checklist!.sections.length - 1)
+                    Container(
+                      width: 40,
+                      height: 2,
+                      color: isCompleted
+                          ? const Color(0xFF2563EB) // blue-600
+                          : const Color(0xFF374151), // gray-700
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                    ),
+                ],
+              );
+            }),
+            // Add "Next steps based on..." step
+            Container(
+              width: 40,
+              height: 2,
+              color: const Color(0xFF374151), // gray-700
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            _buildStepCircle(
+              number: _checklist!.sections.length + 1,
+              label: 'Next steps based on...',
+              isActive: false,
+              isCompleted: false,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepCircle({
+    required int number,
+    required String label,
+    required bool isActive,
+    required bool isCompleted,
+  }) {
+    final backgroundColor = isActive || isCompleted
+        ? const Color(0xFF2563EB) // blue-600
+        : const Color(0xFF374151); // gray-700
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: LinearProgressIndicator(
-              value: _currentSection / _checklist!.sections.length,
-              backgroundColor: const Color(0xFF374151), // gray-700
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF2563EB), // blue-600
+          child: Center(
+            child: Text(
+              '$number',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.white : const Color(0xFF9CA3AF), // gray-400
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 
@@ -724,13 +829,45 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          section.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB), // blue-600
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withOpacity(0.3),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  '$_currentSection',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                section.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         ...visibleItems.map((item) => _buildItemWidget(section.id, item)),
@@ -748,6 +885,13 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
         border: Border.all(
           color: const Color(0xFF374151), // gray-700
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -933,45 +1077,102 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
           top: BorderSide(color: Color(0xFF374151)), // gray-700
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          if (_currentSection > 1)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => _goToSection(_currentSection - 1),
-                style: OutlinedButton.styleFrom(
+          // Previous and Next buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _currentSection > 1
+                      ? () => _goToSection(_currentSection - 1)
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _currentSection > 1
+                        ? Colors.white
+                        : const Color(0xFF6B7280), // gray-500 when disabled
+                    side: BorderSide(
+                      color: _currentSection > 1
+                          ? const Color(0xFF2563EB) // blue-600 border
+                          : const Color(0xFF374151), // gray-700 when disabled
+                    ),
+                    backgroundColor: _currentSection > 1
+                        ? const Color(0xFF1F2937) // gray-800
+                        : const Color(0xFF111827), // gray-900 when disabled
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('< '),
+                      Text('Previous'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _checklist != null && _currentSection < _checklist!.sections.length
+                      ? () {
+                          // Check if we should show hypotheses before going to next section
+                          _checkAndShowHypotheses();
+                          // If hypotheses weren't shown, proceed to next section
+                          if (!_hypothesesOpen) {
+                            _goToSection(_currentSection + 1);
+                          }
+                        }
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _checklist != null && _currentSection < _checklist!.sections.length
+                        ? Colors.white
+                        : const Color(0xFF6B7280), // gray-500 when disabled
+                    side: BorderSide(
+                      color: _checklist != null && _currentSection < _checklist!.sections.length
+                          ? const Color(0xFF2563EB) // blue-600 border
+                          : const Color(0xFF374151), // gray-700 when disabled
+                    ),
+                    backgroundColor: _checklist != null && _currentSection < _checklist!.sections.length
+                        ? const Color(0xFF1F2937) // gray-800
+                        : const Color(0xFF111827), // gray-900 when disabled
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Next'),
+                      Text(' >'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Save & Return button (separate row)
+          if (_currentSection < (_checklist?.sections.length ?? 0)) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // TODO: Implement save & return functionality
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB), // blue-600
                   foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0xFF374151)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: const Text('Previous'),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.save, size: 16),
+                    SizedBox(width: 4),
+                    Text('Save & Return'),
+                  ],
+                ),
               ),
             ),
-          if (_currentSection > 1) const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: _checklist != null && _currentSection < _checklist!.sections.length
-                  ? () {
-                      // Check if we should show hypotheses before going to next section
-                      _checkAndShowHypotheses();
-                      // If hypotheses weren't shown, proceed to next section
-                      if (!_hypothesesOpen) {
-                        _goToSection(_currentSection + 1);
-                      }
-                    }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB), // blue-600
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: Text(
-                _checklist != null && _currentSection < _checklist!.sections.length
-                    ? 'Next Section'
-                    : 'Complete',
-              ),
-            ),
-          ),
+          ],
         ],
       ),
     );
