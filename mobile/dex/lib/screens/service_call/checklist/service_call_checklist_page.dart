@@ -141,7 +141,9 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
       );
 
       if (referencedItem.id.isNotEmpty) {
-        final selectedValue = referencedItem.selectedOptions?.first ??
+        final selectedValue = (referencedItem.selectedOptions?.isNotEmpty == true
+                ? referencedItem.selectedOptions!.first
+                : null) ??
             referencedItem.selectedOption;
         return selectedValue != null &&
             selectedValue == item.conditionalOn!.option;
@@ -170,7 +172,9 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
 
         if (referencedItem.id.isNotEmpty) {
           final value = referencedItem.numericValue ??
-              referencedItem.selectedOptions?.first ??
+              (referencedItem.selectedOptions?.isNotEmpty == true
+                  ? referencedItem.selectedOptions!.first
+                  : null) ??
               referencedItem.selectedOption ??
               '';
           if (item.conditionalOn!.option != null &&
@@ -1024,6 +1028,100 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
               },
               activeColor: const Color(0xFF2563EB), // blue-600
               contentPadding: EdgeInsets.zero,
+            ),
+
+          // Temperature rise interpretation (calculated display)
+          if (item.id == 'temperatureRiseInterpretation' && sectionId == '3')
+            Builder(
+              builder: (context) {
+                // Get current state of the section from the checklist
+                final currentSectionState = _checklist!.sections.firstWhere(
+                  (s) => s.id == sectionId,
+                  orElse: () => ChecklistItem(id: '', title: '', items: []),
+                );
+                final returnAirItem = currentSectionState.items.firstWhere(
+                  (i) => i.id == 'returnAirTemp',
+                  orElse: () => ChecklistItemData(id: '', text: '', checked: false),
+                );
+                final supplyAirItem = currentSectionState.items.firstWhere(
+                  (i) => i.id == 'supplyAirTemp',
+                  orElse: () => ChecklistItemData(id: '', text: '', checked: false),
+                );
+                
+                final returnTemp = returnAirItem.numericValue?.isNotEmpty == true
+                    ? double.tryParse(returnAirItem.numericValue!)
+                    : null;
+                final supplyTemp = supplyAirItem.numericValue?.isNotEmpty == true
+                    ? double.tryParse(supplyAirItem.numericValue!)
+                    : null;
+                
+                if (returnTemp != null && supplyTemp != null) {
+                  final tempRise = supplyTemp - returnTemp;
+                  String tempRiseLabel;
+                  Color tempRiseColor;
+                  
+                  if (tempRise < 15) {
+                    tempRiseLabel = 'Low temperature rise (${tempRise.toStringAsFixed(1)}°F) — possible airflow or heating element issue';
+                    tempRiseColor = const Color(0xFFFBBF24); // yellow-400
+                  } else if (tempRise >= 15 && tempRise <= 50) {
+                    tempRiseLabel = 'Normal heating temperature rise (${tempRise.toStringAsFixed(1)}°F)';
+                    tempRiseColor = const Color(0xFF10B981); // green-500
+                  } else {
+                    tempRiseLabel = 'High temperature rise (${tempRise.toStringAsFixed(1)}°F) — possible airflow restriction';
+                    tempRiseColor = const Color(0xFFF97316); // orange-500
+                  }
+                  
+                  return Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF374151), // gray-700
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: tempRiseColor.withOpacity(0.5),
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: tempRiseColor,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            tempRiseLabel,
+                            style: TextStyle(
+                              color: tempRiseColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  return Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF374151), // gray-700
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Enter both return and supply air temperatures to calculate temperature rise',
+                      style: TextStyle(
+                        color: const Color(0xFF9CA3AF), // gray-400
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  );
+                }
+              },
             ),
 
           // Notes textarea (show for action items or if notes field exists)
