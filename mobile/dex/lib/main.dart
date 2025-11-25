@@ -17,30 +17,22 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {
-    print('Warning: Could not load .env file: $e');
-    print('Make sure you have created a .env file with SUPABASE_URL and SUPABASE_ANON_KEY');
+    // .env file not found - will fail gracefully during Supabase initialization
   }
   
   // Get environment variables
   final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
   final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
   
-  // Validate environment variables
-  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-    print('ERROR: SUPABASE_URL or SUPABASE_ANON_KEY is missing!');
-    print('Please create a .env file in mobile/dex/ with:');
-    print('SUPABASE_URL=your_supabase_url');
-    print('SUPABASE_ANON_KEY=your_supabase_anon_key');
-  } else {
-    // Initialize Supabase
+  // Initialize Supabase
+  if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
     try {
       await SupabaseService.initialize(
         supabaseUrl: supabaseUrl,
         supabaseAnonKey: supabaseAnonKey,
       );
-      print('Supabase initialized successfully');
     } catch (e) {
-      print('ERROR: Failed to initialize Supabase: $e');
+      // Supabase initialization failed - will be handled by auth provider
     }
   }
   
@@ -64,9 +56,9 @@ class DexApp extends StatelessWidget {
       create: (_) => AuthProvider(),
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
-          // Show auth screen if not authenticated
+          // Show auth screen if not authenticated (including during loading to prevent flash)
           Widget home = const JobTypePage();
-          if (!authProvider.isAuthenticated && !authProvider.loading) {
+          if (!authProvider.isAuthenticated) {
             home = const AuthScreen();
           }
           

@@ -86,7 +86,6 @@ class SupabaseService {
           .single();
       return response;
     } catch (e) {
-      print('Error fetching user data: $e');
       return null;
     }
   }

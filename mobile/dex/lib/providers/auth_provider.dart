@@ -40,13 +40,11 @@ class AuthProvider with ChangeNotifier {
             _userData = await SupabaseService.getUserData(_user!.id);
           } catch (e) {
             // If user data fetch fails, that's okay - user might not have a record yet
-            print('Could not fetch user data: $e');
             _userData = null;
           }
         }
       } catch (e) {
         // If getUser fails, user is not logged in - that's fine
-        print('No current user: $e');
         _user = null;
         _userData = null;
       }
@@ -59,7 +57,6 @@ class AuthProvider with ChangeNotifier {
           try {
             _userData = await SupabaseService.getUserData(_user!.id);
           } catch (e) {
-            print('Could not fetch user data on auth change: $e');
             _userData = null;
           }
         } else {
@@ -70,7 +67,6 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       });
     } catch (e) {
-      print('Error initializing auth provider: $e');
       _error = null; // Don't show initialization errors to user
     } finally {
       _loading = false;
@@ -142,6 +138,7 @@ class AuthProvider with ChangeNotifier {
   }) async {
     _loading = true;
     _error = null;
+    // Don't set user to null here - keep previous state to prevent navigation flash
     notifyListeners();
 
     try {
@@ -150,7 +147,8 @@ class AuthProvider with ChangeNotifier {
         password: password,
       );
 
-      if (response.user != null) {
+      if (response.user != null && response.session != null) {
+        // Only update user state if we have a valid session
         _user = response.user;
         _userData = await SupabaseService.getUserData(response.user!.id);
         
@@ -177,6 +175,9 @@ class AuthProvider with ChangeNotifier {
       }
       _error = errorMessage;
       _loading = false;
+      // Ensure user remains null on error to stay on auth screen
+      _user = null;
+      _userData = null;
       notifyListeners();
       return false;
     }
