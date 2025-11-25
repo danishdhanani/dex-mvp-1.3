@@ -8,6 +8,7 @@ import 'screens/job_type/job_type_page.dart';
 import 'screens/service_call/unit_selection_page.dart';
 import 'screens/service_call/service_call_page.dart';
 import 'screens/auth/auth_screen.dart';
+import 'screens/pm/pm_summary_page.dart';
 import 'navigation/app_router.dart';
 
 Future<void> main() async {
@@ -107,20 +108,8 @@ class DexApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         // Handle routes with parameters
         if (settings.name == AppRouter.pmSummary) {
-          // TODO: Implement PM summary page
           return MaterialPageRoute(
-            builder: (context) => Scaffold(
-              appBar: AppBar(
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                title: const Text('PM Summary'),
-              ),
-              body: const Center(
-                child: Text('PM Summary - Coming Soon'),
-              ),
-            ),
+            builder: (context) => const PMSummaryPage(),
           );
         }
         if (settings.name == AppRouter.troubleshooting) {
