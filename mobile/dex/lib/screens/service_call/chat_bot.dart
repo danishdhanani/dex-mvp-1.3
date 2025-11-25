@@ -1,7 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../../models/checklist_types.dart';
+
+// Class definitions
+class ChatMessage {
+  final String id;
+  final String text;
+  final bool isUser;
+  final DateTime timestamp;
+
+  ChatMessage({
+    required this.id,
+    required this.text,
+    required this.isUser,
+    required this.timestamp,
+  });
+}
+
+class UnitInfo {
+  final String brand;
+  final String model;
+  final String? series;
+  final String? yearRange;
+  final String unitType;
+
+  UnitInfo({
+    required this.brand,
+    required this.model,
+    this.series,
+    this.yearRange,
+    required this.unitType,
+  });
+}
+
+class PresetOption {
+  final String question;
+  final String title;
+  final String description;
+  final IconData icon;
+
+  PresetOption({
+    required this.question,
+    required this.title,
+    required this.description,
+    required this.icon,
+  });
+}
+
+class ChecklistItem {
+  final String id;
+  final String title;
+  String description;
+  bool completed;
+
+  ChecklistItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    this.completed = false,
+  });
+}
 
 class ChatBot extends StatefulWidget {
   final String unitType;
@@ -15,6 +73,7 @@ class ChatBot extends StatefulWidget {
 class _ChatBotState extends State<ChatBot> {
   final List<ChatMessage> _messages = [];
   final TextEditingController _inputController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   bool _showUnitSelector = false;
   UnitInfo? _selectedUnit;
@@ -22,7 +81,20 @@ class _ChatBotState extends State<ChatBot> {
   @override
   void dispose() {
     _inputController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   String _getEquipmentTypeName(String type) {
@@ -38,8 +110,6 @@ class _ChatBotState extends State<ChatBot> {
 
   List<PresetOption> _getPresetOptions(String type) {
     // Get equipment-specific preset options matching the web version
-    final equipmentName = _getEquipmentTypeName(type);
-    
     if (type == 'rtu') {
       return [
         PresetOption(
@@ -253,6 +323,7 @@ class _ChatBotState extends State<ChatBot> {
       _messages.add(userMessage);
       _isLoading = true;
     });
+    _scrollToBottom();
 
     _inputController.clear();
 
@@ -268,6 +339,7 @@ class _ChatBotState extends State<ChatBot> {
     setState(() {
       _messages.add(botMessage);
     });
+    _scrollToBottom();
 
     try {
       // Build conversation history (last 4 messages)
@@ -335,6 +407,7 @@ class _ChatBotState extends State<ChatBot> {
             );
           }
         });
+        _scrollToBottom();
       }
 
       // Final update to ensure complete message
@@ -355,6 +428,7 @@ class _ChatBotState extends State<ChatBot> {
         }
         _isLoading = false;
       });
+      _scrollToBottom();
     } catch (error) {
       print('Chat API error: $error');
       setState(() {
@@ -381,11 +455,9 @@ class _ChatBotState extends State<ChatBot> {
           // Unit Selection Header
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _selectedUnit == null
-                  ? const Color(0xFF7F1D1D).withOpacity(0.2) // red-900/20
-                  : const Color(0xFF1F2937), // gray-800
-              border: const Border(
+            decoration: const BoxDecoration(
+              color: Color(0xFF1F2937), // gray-800
+              border: Border(
                 bottom: BorderSide(
                   color: Color(0xFF374151), // gray-700
                   width: 1,
@@ -435,16 +507,18 @@ class _ChatBotState extends State<ChatBot> {
             child: _messages.isEmpty
                 ? _buildWelcomeScreen()
                 : ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length + (_isLoading ? 1 : 0),
+                    itemCount: _messages.length,
                     itemBuilder: (context, index) {
-                      if (index == _messages.length && _isLoading) {
-                        return _buildLoadingMessage();
-                      }
                       return _buildMessage(_messages[index]);
                     },
                   ),
           ),
+
+          // Unit Selector Modal
+          if (_showUnitSelector)
+            _buildUnitSelectorModal(),
 
           // Input Area
           Container(
@@ -579,27 +653,41 @@ class _ChatBotState extends State<ChatBot> {
   }
 
   Widget _buildMessage(ChatMessage message) {
-    return Align(
-      alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
-        constraints: const BoxConstraints(maxWidth: 300),
-        decoration: BoxDecoration(
-          color: message.isUser
-              ? const Color(0xFF374151) // gray-700
-              : const Color(0xFF1F2937), // gray-800
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          message.text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
+    if (message.isUser) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(12),
+          constraints: const BoxConstraints(maxWidth: 300),
+          decoration: BoxDecoration(
+            color: const Color(0xFF374151), // gray-700
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            message.text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    } else {
+      // AI response - use TroubleshootingChecklist widget
+      // If message is empty, show loading placeholder
+      if (message.text.isEmpty) {
+        return _buildLoadingMessage();
+      }
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          constraints: const BoxConstraints(maxWidth: 350),
+          child: TroubleshootingChecklist(response: message.text),
+        ),
+      );
+    }
   }
 
   Widget _buildLoadingMessage() {
@@ -630,50 +718,687 @@ class _ChatBotState extends State<ChatBot> {
       ),
     );
   }
+
+  Widget _buildUnitSelectorModal() {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(16),
+      child: _UnitSelectorModalContent(
+        selectedUnit: _selectedUnit,
+        unitType: widget.unitType,
+        onClose: () {
+          setState(() {
+            _showUnitSelector = false;
+          });
+        },
+        onSave: (unitInfo) {
+          setState(() {
+            _selectedUnit = unitInfo;
+            _showUnitSelector = false;
+          });
+        },
+        getEquipmentTypeName: _getEquipmentTypeName,
+      ),
+    );
+  }
 }
 
-class ChatMessage {
-  final String id;
-  final String text;
-  final bool isUser;
-  final DateTime timestamp;
-
-  ChatMessage({
-    required this.id,
-    required this.text,
-    required this.isUser,
-    required this.timestamp,
-  });
-}
-
-class UnitInfo {
-  final String brand;
-  final String model;
-  final String? series;
-  final String? yearRange;
+class _UnitSelectorModalContent extends StatefulWidget {
+  final UnitInfo? selectedUnit;
   final String unitType;
+  final VoidCallback onClose;
+  final Function(UnitInfo) onSave;
+  final String Function(String) getEquipmentTypeName;
 
-  UnitInfo({
-    required this.brand,
-    required this.model,
-    this.series,
-    this.yearRange,
+  const _UnitSelectorModalContent({
+    required this.selectedUnit,
     required this.unitType,
+    required this.onClose,
+    required this.onSave,
+    required this.getEquipmentTypeName,
   });
+
+  @override
+  State<_UnitSelectorModalContent> createState() => _UnitSelectorModalContentState();
 }
 
-class PresetOption {
-  final String question;
-  final String title;
-  final String description;
-  final IconData icon;
+class _UnitSelectorModalContentState extends State<_UnitSelectorModalContent> {
+  late TextEditingController brandController;
+  late TextEditingController modelController;
+  late TextEditingController seriesController;
+  late TextEditingController yearRangeController;
+  String inputMode = 'manual';
 
-  PresetOption({
-    required this.question,
-    required this.title,
-    required this.description,
-    required this.icon,
-  });
+  @override
+  void initState() {
+    super.initState();
+    brandController = TextEditingController(text: widget.selectedUnit?.brand ?? '');
+    modelController = TextEditingController(text: widget.selectedUnit?.model ?? '');
+    seriesController = TextEditingController(text: widget.selectedUnit?.series ?? '');
+    yearRangeController = TextEditingController(text: widget.selectedUnit?.yearRange ?? '');
+  }
+
+  @override
+  void dispose() {
+    brandController.dispose();
+    modelController.dispose();
+    seriesController.dispose();
+    yearRangeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 600),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937), // gray-800
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Select Unit',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: widget.onClose,
+                ),
+              ],
+            ),
+          ),
+          // Input Mode Toggle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF374151), // gray-700
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          inputMode = 'manual';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: inputMode == 'manual'
+                              ? const Color(0xFF2563EB) // blue-600
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Manual Input',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: const Column(
+                        children: [
+                          Text(
+                            'Nameplate Scan',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF9CA3AF), // gray-400
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            '(Coming Soon)',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF9CA3AF), // gray-400
+                              fontSize: 10,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Form Fields
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Brand
+                  const Text(
+                    'Brand *',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFD1D5DB), // gray-300
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: brandController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'e.g., Hoshizaki, Manitowoc, Scotsman',
+                      hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                      filled: true,
+                      fillColor: const Color(0xFF374151), // gray-700
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Model
+                  const Text(
+                    'Model *',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFD1D5DB), // gray-300
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: modelController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'e.g., KM-1200 SRE, iT1200 Indigo',
+                      hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                      filled: true,
+                      fillColor: const Color(0xFF374151), // gray-700
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Series
+                  const Text(
+                    'Series',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFD1D5DB), // gray-300
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: seriesController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'e.g., SRE Series, Indigo Series',
+                      hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                      filled: true,
+                      fillColor: const Color(0xFF374151), // gray-700
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Year Range
+                  const Text(
+                    'Year Range',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFD1D5DB), // gray-300
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: yearRangeController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'e.g., 2020-2024, 2018+',
+                      hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                      filled: true,
+                      fillColor: const Color(0xFF374151), // gray-700
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Unit Type
+                  Text(
+                    'Unit Type ${widget.unitType.isNotEmpty ? '(Pre-selected)' : '*'}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFD1D5DB), // gray-300
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF374151), // gray-700
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF4B5563)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.getEquipmentTypeName(widget.unitType.isNotEmpty ? widget.unitType : 'ice-machine'),
+                            style: const TextStyle(
+                              color: Color(0xFFD1D5DB), // gray-300
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.check_circle,
+                          color: Color(0xFF60A5FA), // blue-400
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+          // Buttons
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: widget.onClose,
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFF374151), // gray-600
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    if (brandController.text.trim().isEmpty ||
+                        modelController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please fill in Brand and Model'),
+                          backgroundColor: Color(0xFFDC2626),
+                        ),
+                      );
+                      return;
+                    }
+                    widget.onSave(UnitInfo(
+                      brand: brandController.text.trim(),
+                      model: modelController.text.trim(),
+                      series: seriesController.text.trim().isEmpty
+                          ? null
+                          : seriesController.text.trim(),
+                      yearRange: yearRangeController.text.trim().isEmpty
+                          ? null
+                          : yearRangeController.text.trim(),
+                      unitType: widget.unitType.isNotEmpty
+                          ? widget.unitType
+                          : 'ice-machine',
+                    ));
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB), // blue-600
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: const Text('Save Unit'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TroubleshootingChecklist extends StatefulWidget {
+  final String response;
+
+  const TroubleshootingChecklist({super.key, required this.response});
+
+  @override
+  State<TroubleshootingChecklist> createState() => _TroubleshootingChecklistState();
+}
+
+class _TroubleshootingChecklistState extends State<TroubleshootingChecklist> {
+  final Set<String> _expandedItems = {};
+  final Set<String> _completedItems = {};
+  late List<ChecklistItem> _checklistItems;
+
+  @override
+  void initState() {
+    super.initState();
+    _checklistItems = _parseResponse(widget.response);
+    // Auto-expand all items by default so response is visible
+    for (final item in _checklistItems) {
+      _expandedItems.add(item.id);
+    }
+  }
+
+  @override
+  void didUpdateWidget(TroubleshootingChecklist oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update checklist items when response changes (for streaming updates)
+    if (oldWidget.response != widget.response) {
+      _checklistItems = _parseResponse(widget.response);
+      // Keep existing expanded/completed states, but add new items as expanded
+      for (final item in _checklistItems) {
+        if (!_expandedItems.contains(item.id)) {
+          _expandedItems.add(item.id);
+        }
+      }
+    }
+  }
+
+  List<ChecklistItem> _parseResponse(String text) {
+    final items = <ChecklistItem>[];
+    
+    // Check for numbered steps (1., 2., 3., etc.)
+    final lines = text.split('\n');
+    ChecklistItem? currentStep;
+    int stepId = 1;
+
+    for (final line in lines) {
+      final trimmedLine = line.trim();
+      
+      // Check if this line starts a new numbered step
+      final stepMatch = RegExp(r'^(\d+)\.\s*(.+)$').firstMatch(trimmedLine);
+      if (stepMatch != null) {
+        // Save previous step if exists
+        if (currentStep != null) {
+          items.add(currentStep);
+        }
+        
+        // Start new step
+        currentStep = ChecklistItem(
+          id: 'step-$stepId',
+          title: '${stepMatch.group(1)}. ${stepMatch.group(2)}',
+          description: '',
+        );
+        stepId++;
+      } else if (currentStep != null && trimmedLine.isNotEmpty) {
+        // Add content to current step's description
+        if (currentStep.description.isNotEmpty) {
+          currentStep.description += '\n$trimmedLine';
+        } else {
+          currentStep.description = trimmedLine;
+        }
+      }
+    }
+    
+    // Add the last step
+    if (currentStep != null) {
+      items.add(currentStep);
+    }
+
+    // If no numbered steps found, treat as single item
+    if (items.isEmpty) {
+      items.add(ChecklistItem(
+        id: 'single-response',
+        title: 'Response',
+        description: text,
+      ));
+    }
+
+    return items;
+  }
+
+  void _toggleExpanded(String itemId) {
+    setState(() {
+      if (_expandedItems.contains(itemId)) {
+        _expandedItems.remove(itemId);
+      } else {
+        _expandedItems.add(itemId);
+      }
+    });
+  }
+
+  void _toggleCompleted(String itemId) {
+    setState(() {
+      if (_completedItems.contains(itemId)) {
+        _completedItems.remove(itemId);
+      } else {
+        _completedItems.add(itemId);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_checklistItems.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1F2937), // gray-800
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          widget.response,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+          ),
+        ),
+      );
+    }
+
+    final completedCount = _completedItems.length;
+    final totalCount = _checklistItems.length;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937), // gray-800
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Checklist items
+          ..._checklistItems.map((item) {
+            final isExpanded = _expandedItems.contains(item.id);
+            final isCompleted = _completedItems.contains(item.id);
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Checkbox
+                  Checkbox(
+                    value: isCompleted,
+                    onChanged: (value) => _toggleCompleted(item.id),
+                    activeColor: const Color(0xFF16A34A), // green-600
+                    checkColor: Colors.white,
+                  ),
+                  const SizedBox(width: 8),
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.title,
+                                style: TextStyle(
+                                  color: isCompleted
+                                      ? const Color(0xFF9CA3AF) // gray-400
+                                      : Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  decoration: isCompleted
+                                      ? TextDecoration.lineThrough
+                                      : TextDecoration.none,
+                                ),
+                              ),
+                            ),
+                            if (item.description.isNotEmpty)
+                              TextButton(
+                                onPressed: () => _toggleExpanded(item.id),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  isExpanded ? 'Collapse' : 'Expand',
+                                  style: const TextStyle(
+                                    color: Color(0xFF60A5FA), // blue-400
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        // Expanded description
+                        if (isExpanded && item.description.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              item.description,
+                              style: const TextStyle(
+                                color: Color(0xFFD1D5DB), // gray-300
+                                fontSize: 13,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          
+          // Progress bar (only show if more than 1 item)
+          if (_checklistItems.length > 1)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F2937), // gray-800
+                border: Border.all(color: const Color(0xFF4B5563)), // gray-600
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Progress',
+                        style: TextStyle(
+                          color: Color(0xFFD1D5DB), // gray-300
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        '$completedCount of $totalCount completed',
+                        style: const TextStyle(
+                          color: Color(0xFFD1D5DB), // gray-300
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: totalCount > 0 ? completedCount / totalCount : 0,
+                      backgroundColor: const Color(0xFF374151), // gray-700
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF16A34A), // green-600
+                      ),
+                      minHeight: 8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PresetOptionCard extends StatelessWidget {
