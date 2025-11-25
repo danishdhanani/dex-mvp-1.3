@@ -263,11 +263,30 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
       if (rtuContext != null) {
         hypotheses = DecisionTreeRules.generateRTUHeatingHypotheses(rtuContext);
       }
+    } else if (_currentSection == 2) {
+      // For all other cases after section 2, generate hypotheses from diagnostic context
+      context = _buildDiagnosticContext();
+      if (context != null) {
+        hypotheses = DecisionTreeRules.generateHypotheses(context);
+      }
     }
 
     if (hypotheses.isEmpty && context != null) {
       // Fallback to general diagnostics
       hypotheses = DecisionTreeRules.generateHypotheses(context);
+    }
+
+    // If still no hypotheses, show a generic "General diagnostics" option
+    if (hypotheses.isEmpty && _currentSection == 2) {
+      hypotheses = [
+        Hypothesis(
+          id: 'general-diagnostics',
+          label: 'General diagnostics',
+          reason: 'No specific fault pattern detected',
+          confidence: 0.5,
+          nextSectionId: 'generalDiagnostics',
+        ),
+      ];
     }
 
     setState(() {
@@ -530,10 +549,24 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   }
 
   void _checkAndShowHypotheses() {
-    // For walk-in ice-frost-build-up: show after section 2
-    if (widget.unitType == 'walkIn' &&
-        widget.issueId == 'ice-frost-build-up' &&
+    // For RTU not-cooling: go directly to section 3 (Cooling Checks) after section 2
+    if (widget.unitType == 'rtu' &&
+        widget.issueId == 'not-cooling' &&
         _currentSection == 2) {
+      // Don't show hypotheses, go to section 3
+      return;
+    }
+
+    // For RTU not-heating: go directly to section 3 (Heating Checks) after section 2
+    if (widget.unitType == 'rtu' &&
+        widget.issueId == 'not-heating' &&
+        _currentSection == 2) {
+      // Don't show hypotheses, go to section 3
+      return;
+    }
+
+    // For all other cases: show hypotheses after section 2 (Initial Diagnosis)
+    if (_currentSection == 2) {
       _generateHypotheses();
       return;
     }
