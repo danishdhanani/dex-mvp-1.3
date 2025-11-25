@@ -1,12 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'services/supabase_service.dart';
+import 'providers/auth_provider.dart';
 import 'screens/job_type/job_type_page.dart';
 import 'screens/service_call/unit_selection_page.dart';
 import 'screens/service_call/service_call_page.dart';
+import 'screens/auth/auth_screen.dart';
 import 'navigation/app_router.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    print('Warning: Could not load .env file: $e');
+    print('Make sure you have created a .env file with SUPABASE_URL and SUPABASE_ANON_KEY');
+  }
+  
+  // Get environment variables
+  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  
+  // Validate environment variables
+  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+    print('ERROR: SUPABASE_URL or SUPABASE_ANON_KEY is missing!');
+    print('Please create a .env file in mobile/dex/ with:');
+    print('SUPABASE_URL=your_supabase_url');
+    print('SUPABASE_ANON_KEY=your_supabase_anon_key');
+  } else {
+    // Initialize Supabase
+    try {
+      await SupabaseService.initialize(
+        supabaseUrl: supabaseUrl,
+        supabaseAnonKey: supabaseAnonKey,
+      );
+      print('Supabase initialized successfully');
+    } catch (e) {
+      print('ERROR: Failed to initialize Supabase: $e');
+    }
+  }
+  
   // Set system UI overlay style for dark theme
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -14,6 +51,7 @@ void main() {
       statusBarIconBrightness: Brightness.light,
     ),
   );
+  
   runApp(const DexApp());
 }
 
@@ -22,10 +60,20 @@ class DexApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dex Service Copilot',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
+    return ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          // Show auth screen if not authenticated
+          Widget home = const JobTypePage();
+          if (!authProvider.isAuthenticated && !authProvider.loading) {
+            home = const AuthScreen();
+          }
+          
+          return MaterialApp(
+            title: 'Dex Service Copilot',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF2563EB), // blue-600
         scaffoldBackgroundColor: const Color(0xFF111827), // gray-900
@@ -59,7 +107,7 @@ class DexApp extends StatelessWidget {
           bodySmall: TextStyle(color: Colors.white),
         ),
       ),
-      home: const JobTypePage(),
+      home: home,
       routes: {
         AppRouter.serviceCallUnitSelection: (context) => const ServiceCallUnitSelectionPage(),
         AppRouter.serviceCall: (context) => const ServiceCallPage(),
@@ -95,6 +143,9 @@ class DexApp extends StatelessWidget {
         }
         return null;
       },
-    );
+            );
+          },
+        ),
+      );
+    }
   }
-}
