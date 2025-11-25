@@ -28,6 +28,10 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   List<String> _chosenPathTitles = [];
   bool _chosenWrapUp = false;
   Map<String, String> _blockingMessageResolutions = {}; // 'resolved' | 'acknowledged'
+  Map<String, String> _readings = {
+    'boxTemp': '',
+    'setpoint': '',
+  };
 
   @override
   void initState() {
@@ -126,6 +130,22 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   void _updateNotes(String sectionId, String itemId, String notes) {
     _updateItem(sectionId, itemId, (item) {
       return item.copyWith(notes: notes);
+    });
+  }
+
+  void _toggleItemStatus(String sectionId, String itemId) {
+    _updateItem(sectionId, itemId, (item) {
+      // Cycle through: unchecked -> red -> yellow -> green -> na -> unchecked
+      const statusOrder = ['unchecked', 'red', 'yellow', 'green', 'na'];
+      final currentStatus = item.status ?? 'unchecked';
+      final currentIndex = statusOrder.indexOf(currentStatus);
+      final nextIndex = (currentIndex + 1) % statusOrder.length;
+      final nextStatus = statusOrder[nextIndex];
+      
+      return item.copyWith(
+        status: nextStatus == 'unchecked' ? null : nextStatus,
+        checked: nextStatus != 'unchecked',
+      );
     });
   }
 
@@ -627,21 +647,72 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   }
 
   String _getIssueDisplayName(String issueId) {
+    // Special case for short-cycling: different names for RTU vs Split Unit
+    if (issueId == 'short-cycling') {
+      if (widget.unitType == 'splitUnit' || widget.unitType == 'split-unit') {
+        return 'Cycle / Noise';
+      }
+      return 'Cycle / Noise Issue';
+    }
+
+    // Special case for running-constantly: different name for reach-ins and walk-ins
+    if (issueId == 'running-constantly') {
+      if (widget.unitType == 'reachIn' || widget.unitType == 'reach-in' ||
+          widget.unitType == 'walkIn' || widget.unitType == 'walk-in') {
+        return 'Cycle Issues';
+      }
+      return 'Constant Run / Short Cycle';
+    }
+
+    // Special case for ice machine shared issues
+    if (issueId == 'water-leaking' && widget.unitType == 'iceMachine') {
+      return 'Leaking';
+    }
+    if (issueId == 'noisy-operation' && widget.unitType == 'iceMachine') {
+      return 'Noisy';
+    }
+    if (issueId == 'other-alarm' && widget.unitType == 'iceMachine') {
+      return 'Other';
+    }
+
     const names = {
       'not-cooling': 'Not Cooling',
       'not-heating': 'Not Heating',
-      'ice-frost-build-up': 'Ice/Frost Build Up',
       'poor-airflow': 'Poor Airflow',
-      'unit-not-running': 'Unit Not Running',
-      'unit-leaking': 'Unit Leaking',
-      'short-cycling': 'Short Cycling',
+      'unit-not-running': 'Not Running',
+      'unit-not-running-display': 'Not Running',
+      'unit-leaking': 'Water Leaking',
       'zoning-issues': 'Zoning Issues',
+      'running-warm': 'Running Warm',
+      'excessive-frost': 'Excessive Frost',
+      'ice-frost-build-up': 'Ice Build Up',
+      'water-leaking': 'Water Leaking',
+      'noisy-operation': 'Noisy Operation',
+      'door-gasket-issue': 'Door Issue',
+      'other-alarm': 'Other / Alarm',
+      'box-too-cold': 'Box Too Cold',
+      'door-seal-issue': 'Door Seal Issue',
+      'fan-not-working': 'Fan Not Working',
+      'temperature-fluctuation': 'Temperature Fluctuation',
+      'defrost-issue': 'Defrost Issue',
+      'no-ice-production': 'No/slow Ice',
+      'poor-ice-quality': 'Poor Quality',
+      'water-leak': 'Water Leaking',
+      'machine-not-cycling': 'Cycle Issue',
+      'machine-icing-up': 'Icing Up',
+      'water-quality-issue': 'Water Quality Issue',
+      'custom-issue': 'Custom Issue',
     };
     return names[issueId] ?? issueId;
   }
 
   Widget _buildTimeline() {
     if (_checklist == null) return const SizedBox.shrink();
+    
+    // Show only first 2 sections initially, then arrow with "Next steps based on inputs"
+    // For RTU not-cooling/not-heating, also show section 3 (Cooling Checks/Heating Checks)
+    final isRTUWithChecks = widget.unitType == 'rtu' && 
+        (widget.issueId == 'not-cooling' || widget.issueId == 'not-heating');
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -650,20 +721,52 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            ...List.generate(_checklist!.sections.length, (index) {
+            // First 2 sections
+            ...List.generate(2, (index) {
+              if (index >= _checklist!.sections.length) return const SizedBox.shrink();
               final sectionNumber = index + 1;
               final isActive = sectionNumber == _currentSection;
-              final isCompleted = sectionNumber < _currentSection;
+              final section = _checklist!.sections[index];
+              final isCompleted = _isSectionCompleted(section);
+              
+              // Get shortened label
+              final label = _getSectionDescriptor(section.title);
               
               return Row(
                 children: [
                   _buildStepCircle(
                     number: sectionNumber,
-                    label: _checklist!.sections[index].title,
+                    label: label,
                     isActive: isActive,
                     isCompleted: isCompleted,
                   ),
-                  if (index < _checklist!.sections.length - 1)
+                  Container(
+                    width: 40,
+                    height: 2,
+                    color: isCompleted
+                        ? const Color(0xFF2563EB) // blue-600
+                        : const Color(0xFF374151), // gray-700
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                ],
+              );
+            }),
+            // For RTU not-cooling/not-heating, show section 3 (Cooling Checks/Heating Checks)
+            if (isRTUWithChecks && _checklist!.sections.length > 2) ...[
+              (() {
+                final section3 = _checklist!.sections[2];
+                final sectionNumber = 3;
+                final isActive = sectionNumber == _currentSection;
+                final isCompleted = _isSectionCompleted(section3);
+                
+                return Row(
+                  children: [
+                    _buildStepCircle(
+                      number: sectionNumber,
+                      label: section3.title,
+                      isActive: isActive,
+                      isCompleted: isCompleted,
+                    ),
                     Container(
                       width: 40,
                       height: 2,
@@ -672,23 +775,179 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
                           : const Color(0xFF374151), // gray-700
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                     ),
-                ],
-              );
-            }),
-            // Add "Next steps based on..." step
+                  ],
+                );
+              })(),
+            ],
+            // Arrow with "Next steps based on inputs"
             Container(
               width: 40,
               height: 2,
               color: const Color(0xFF374151), // gray-700
               margin: const EdgeInsets.symmetric(horizontal: 4),
             ),
-            _buildStepCircle(
-              number: _checklist!.sections.length + 1,
-              label: 'Next steps based on...',
-              isActive: false,
-              isCompleted: false,
-            ),
+            _buildArrowStep(label: 'Next steps based on inputs'),
           ],
+        ),
+      ),
+    );
+  }
+  
+  String _getSectionDescriptor(String title) {
+    const descriptors = {
+      'Safety / Prep': 'Safety',
+      'box check': 'Box',
+      'Condenser check': 'Condenser',
+    };
+    return descriptors[title] ?? title;
+  }
+  
+  bool _isSectionCompleted(ChecklistItem section) {
+    return section.items.every((item) {
+      // Skip blocking messages and info messages
+      if (item.isBlockingMessage == true || item.isInfoMessage == true) return true;
+      
+      // Skip conditionally hidden items
+      if (item.conditionalOn != null) {
+        final referencedItem = section.items.firstWhere(
+          (i) => i.id == item.conditionalOn!.itemId,
+          orElse: () => ChecklistItemData(id: '', text: '', checked: false),
+        );
+        if (referencedItem.id.isNotEmpty) {
+          final selectedValue = (referencedItem.selectedOptions != null && 
+              referencedItem.selectedOptions!.isNotEmpty) 
+              ? referencedItem.selectedOptions!.first 
+              : (referencedItem.selectedOption ?? '');
+          if (selectedValue != item.conditionalOn!.option) {
+            return true; // Item is conditionally hidden
+          }
+        }
+      }
+      
+      // Skip optional photo items
+      if (item.text.toLowerCase().contains('optional') && 
+          item.text.toLowerCase().contains('photo')) return true;
+      
+      // Check numeric inputs
+      if (item.numericInputs != null && item.numericInputs!.isNotEmpty) {
+        if (item.id == '2-5') {
+          // Pressure recording - need both values and refrigerant type
+          final hasValues = item.numericInputs!.any((input) => input.value.trim().isNotEmpty);
+          final hasRefrigerant = item.refrigerantType != null && 
+              item.refrigerantType!.trim().isNotEmpty;
+          return hasValues && hasRefrigerant;
+        }
+        return item.numericInputs!.any((input) => input.value.trim().isNotEmpty);
+      }
+      
+      // Check numeric value
+      if (item.numericValue != null) {
+        return item.numericValue!.trim().isNotEmpty;
+      }
+      
+      // Check options
+      if (item.options != null) {
+        return (item.selectedOptions != null && item.selectedOptions!.isNotEmpty) ||
+            (item.selectedOption != null && item.selectedOption!.trim().isNotEmpty);
+      }
+      
+      // Check status
+      return item.status != null && item.status != 'unchecked';
+    });
+  }
+  
+  Widget _buildArrowStep({required String label}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: const BoxDecoration(
+            color: Color(0xFF374151), // gray-700
+            shape: BoxShape.circle,
+          ),
+          child: const Center(
+            child: Text(
+              '→',
+              style: TextStyle(
+                color: Color(0xFF9CA3AF), // gray-400
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF9CA3AF), // gray-400
+              fontSize: 10,
+              fontWeight: FontWeight.normal,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusButton(String sectionId, ChecklistItemData item) {
+    Color backgroundColor;
+    Color borderColor;
+    String label;
+    
+    switch (item.status) {
+      case 'green':
+        backgroundColor = const Color(0xFF10B981); // green-600
+        borderColor = const Color(0xFF059669); // green-500
+        label = 'Good';
+        break;
+      case 'yellow':
+        backgroundColor = const Color(0xFFEAB308); // yellow-600
+        borderColor = const Color(0xFFCA8A04); // yellow-500
+        label = 'Ok';
+        break;
+      case 'red':
+        backgroundColor = const Color(0xFFDC2626); // red-600
+        borderColor = const Color(0xFFB91C1C); // red-500
+        label = 'Bad';
+        break;
+      case 'na':
+        backgroundColor = const Color(0xFF6B7280); // gray-500
+        borderColor = const Color(0xFF4B5563); // gray-400
+        label = 'N/A';
+        break;
+      default:
+        backgroundColor = const Color(0xFF374151); // gray-700
+        borderColor = const Color(0xFF4B5563); // gray-600
+        label = '○';
+    }
+    
+    return GestureDetector(
+      onTap: () => _toggleItemStatus(sectionId, item.id),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: borderColor,
+            width: 2,
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -700,47 +959,52 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
     required bool isActive,
     required bool isCompleted,
   }) {
-    final backgroundColor = isActive || isCompleted
+    final backgroundColor = isActive
         ? const Color(0xFF2563EB) // blue-600
-        : const Color(0xFF374151); // gray-700
+        : isCompleted
+            ? const Color(0xFF10B981) // green-600 (completed)
+            : const Color(0xFF374151); // gray-700
     
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              '$number',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: () => _goToSection(number),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '$number',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isActive ? Colors.white : const Color(0xFF9CA3AF), // gray-400
-              fontSize: 10,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+          const SizedBox(height: 4),
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isActive ? Colors.white : const Color(0xFF9CA3AF), // gray-400
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -874,40 +1138,275 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
           ],
         ),
         const SizedBox(height: 24),
+        // Box temp and setpoint inputs for Safety / Prep
+        if (section.title == 'Safety / Prep') ...[
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Box temp (°F)',
+                      style: TextStyle(
+                        color: Color(0xFF9CA3AF), // gray-400
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      controller: TextEditingController(text: _readings['boxTemp'] ?? '')
+                        ..selection = TextSelection.fromPosition(
+                          TextPosition(offset: (_readings['boxTemp'] ?? '').length),
+                        ),
+                      decoration: InputDecoration(
+                        hintText: 'Enter temperature',
+                        hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                        filled: true,
+                        fillColor: const Color(0xFF374151), // gray-700
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF2563EB), // blue-600
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _readings['boxTemp'] = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Setpoint (°F)',
+                      style: TextStyle(
+                        color: Color(0xFF9CA3AF), // gray-400
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      controller: TextEditingController(text: _readings['setpoint'] ?? '')
+                        ..selection = TextSelection.fromPosition(
+                          TextPosition(offset: (_readings['setpoint'] ?? '').length),
+                        ),
+                      decoration: InputDecoration(
+                        hintText: 'Enter setpoint',
+                        hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                        filled: true,
+                        fillColor: const Color(0xFF374151), // gray-700
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF2563EB), // blue-600
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _readings['setpoint'] = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
         ...visibleItems.map((item) => _buildItemWidget(section.id, item)),
       ],
     );
   }
 
   Widget _buildItemWidget(String sectionId, ChecklistItemData item) {
+    // Check if item should show status toggle (no options, no numericValue, not optional photo, not special items)
+    final shouldShowStatusToggle = item.options == null &&
+        item.numericValue == null &&
+        !item.text.toLowerCase().contains('optional') &&
+        item.id != '2-5' &&
+        item.id != '2-6';
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1F2937), // gray-800
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFF374151), // gray-700
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Color(0xFF374151), // gray-700
+            width: 1,
           ),
-        ],
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Item text
-          Text(
-            item.text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Status toggle button (only for simple items)
+              if (shouldShowStatusToggle) ...[
+                _buildStatusButton(sectionId, item),
+                const SizedBox(width: 12),
+              ],
+              // Item text and content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: shouldShowStatusToggle
+                          ? () => _toggleItemStatus(sectionId, item.id)
+                          : null,
+                      child: Text(
+                        item.text,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    // Notes and photo upload section (shown when status is set)
+                    if (item.status != null && item.status!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: TextEditingController(text: item.notes ?? '')
+                          ..selection = TextSelection.fromPosition(
+                            TextPosition(offset: (item.notes ?? '').length),
+                          ),
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Add notes...',
+                          hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                          filled: true,
+                          fillColor: const Color(0xFF374151), // gray-700
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF2563EB), // blue-600
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
+                        maxLines: 2,
+                        onChanged: (value) {
+                          _updateNotes(sectionId, item.id, value);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      // Photo upload section
+                      Row(
+                        children: [
+                          const Text(
+                            'Attach Photos:',
+                            style: TextStyle(
+                              color: Color(0xFF9CA3AF), // gray-400
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              // TODO: Implement image picker
+                            },
+                            icon: const Icon(Icons.add_photo_alternate, size: 16),
+                            label: const Text(
+                              '+ Add Photo',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB), // blue-600
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Display uploaded images
+                      if (item.images != null && item.images!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: item.images!.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final image = entry.value;
+                            return Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.network(
+                                    image,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  top: -4,
+                                  right: -4,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.close, size: 16),
+                                    color: Colors.red,
+                                    onPressed: () {
+                                      // TODO: Implement image removal
+                                    },
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
 
@@ -1016,19 +1515,6 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
               );
             }),
 
-          // Checkbox for simple items
-          if (item.options == null &&
-              item.numericValue == null &&
-              item.numericInputs == null)
-            CheckboxListTile(
-              title: const Text(''),
-              value: item.checked,
-              onChanged: (value) {
-                _setItemChecked(sectionId, item.id, value ?? false);
-              },
-              activeColor: const Color(0xFF2563EB), // blue-600
-              contentPadding: EdgeInsets.zero,
-            ),
 
           // Temperature rise interpretation (calculated display)
           if (item.id == 'temperatureRiseInterpretation' && sectionId == '3')
