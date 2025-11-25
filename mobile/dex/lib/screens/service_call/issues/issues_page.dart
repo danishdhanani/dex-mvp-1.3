@@ -50,7 +50,7 @@ class ServiceCallIssuesPage extends StatelessWidget {
           _Issue(
             id: 'short-cycling',
             title: 'Short Cycling / Noisy Operation',
-            description: 'Unit turns on/off rapidly or makes unusual sounds during operation',
+            description: 'Unit turns on/off rapidly or making unusual sounds during operation',
             icon: Icons.repeat,
           ),
           _Issue(
@@ -64,10 +64,52 @@ class ServiceCallIssuesPage extends StatelessWidget {
       case 'walk-in':
         return [
           _Issue(
+            id: 'running-warm',
+            title: 'Running Warm',
+            description: 'Temperature above set point',
+            icon: Icons.thermostat,
+          ),
+          _Issue(
+            id: 'unit-not-running-display',
+            title: 'Not Running / Blank Display',
+            description: 'System will not start or display is blank',
+            icon: Icons.power_off,
+          ),
+          _Issue(
             id: 'ice-frost-build-up',
-            title: 'Ice/Frost Build Up',
-            description: 'Excessive ice or frost accumulation',
+            title: 'Ice / Frost Build Up',
+            description: 'Heavy ice or frost buildup on coils',
             icon: Icons.ac_unit,
+          ),
+          _Issue(
+            id: 'water-leaking',
+            title: 'Water Leaking',
+            description: 'Water dripping or pooling',
+            icon: Icons.water_drop,
+          ),
+          _Issue(
+            id: 'running-constantly',
+            title: 'Constant Run / Short Cycle',
+            description: 'Unit runs continuously or turns on/off rapidly',
+            icon: Icons.repeat,
+          ),
+          _Issue(
+            id: 'noisy-operation',
+            title: 'Noisy Operation / Vibrating',
+            description: 'Unusual sounds or excessive vibration',
+            icon: Icons.volume_up,
+          ),
+          _Issue(
+            id: 'door-gasket-issue',
+            title: 'Door or Gasket Issue',
+            description: 'Poor door seal or gasket problems',
+            icon: Icons.door_sliding,
+          ),
+          _Issue(
+            id: 'other-alarm',
+            title: 'Other / Alarm on Controller',
+            description: 'Other issue or alarm displayed on controller',
+            icon: Icons.warning,
           ),
         ];
       case 'split-unit':
@@ -106,7 +148,7 @@ class ServiceCallIssuesPage extends StatelessWidget {
           _Issue(
             id: 'short-cycling',
             title: 'Short Cycling / Noisy Operation',
-            description: 'Unit turns on/off rapidly or makes unusual sounds during operation',
+            description: 'Unit turns on/off rapidly or making unusual sounds during operation',
             icon: Icons.repeat,
           ),
           _Issue(
@@ -120,10 +162,52 @@ class ServiceCallIssuesPage extends StatelessWidget {
       case 'reachIn':
         return [
           _Issue(
-            id: 'not-cooling',
-            title: 'Not Cooling',
-            description: 'Unit not maintaining temperature',
+            id: 'running-warm',
+            title: 'Running Warm',
+            description: 'Temperature above set point',
+            icon: Icons.thermostat,
+          ),
+          _Issue(
+            id: 'unit-not-running-display',
+            title: 'Not Running / Blank Display',
+            description: 'System will not start or display is blank',
+            icon: Icons.power_off,
+          ),
+          _Issue(
+            id: 'ice-frost-build-up',
+            title: 'Ice / Frost Build Up',
+            description: 'Heavy ice or frost buildup on coils',
             icon: Icons.ac_unit,
+          ),
+          _Issue(
+            id: 'water-leaking',
+            title: 'Water Leaking',
+            description: 'Water dripping or pooling',
+            icon: Icons.water_drop,
+          ),
+          _Issue(
+            id: 'running-constantly',
+            title: 'Constant Run / Short Cycle',
+            description: 'Unit runs continuously or turns on/off rapidly',
+            icon: Icons.repeat,
+          ),
+          _Issue(
+            id: 'noisy-operation',
+            title: 'Noisy Operation / Vibrating',
+            description: 'Unusual sounds or excessive vibration',
+            icon: Icons.volume_up,
+          ),
+          _Issue(
+            id: 'door-gasket-issue',
+            title: 'Door or Gasket Issue',
+            description: 'Poor door seal or gasket problems',
+            icon: Icons.door_sliding,
+          ),
+          _Issue(
+            id: 'other-alarm',
+            title: 'Other / Alarm on Controller',
+            description: 'Other issue or alarm displayed on controller',
+            icon: Icons.warning,
           ),
         ];
       case 'ice-machine':
@@ -131,9 +215,45 @@ class ServiceCallIssuesPage extends StatelessWidget {
         return [
           _Issue(
             id: 'no-ice-production',
-            title: 'No Ice Production',
-            description: 'Machine not making ice',
+            title: 'No (or slow) Ice Production',
+            description: 'Machine not making ice or producing slowly',
             icon: Icons.icecream,
+          ),
+          _Issue(
+            id: 'poor-ice-quality',
+            title: 'Poor Ice Quality',
+            description: 'Ice is cloudy, small, or malformed',
+            icon: Icons.warning,
+          ),
+          _Issue(
+            id: 'water-leaking',
+            title: 'Water Leaking',
+            description: 'Water dripping or pooling',
+            icon: Icons.water_drop,
+          ),
+          _Issue(
+            id: 'machine-icing-up',
+            title: 'Machine Icing Up',
+            description: 'Ice buildup on machine components',
+            icon: Icons.ac_unit,
+          ),
+          _Issue(
+            id: 'noisy-operation',
+            title: 'Noisy Operation / Vibrating',
+            description: 'Unusual sounds or excessive vibration',
+            icon: Icons.volume_up,
+          ),
+          _Issue(
+            id: 'machine-not-cycling',
+            title: 'Power or Cycle Issues',
+            description: 'Machine will not start or not completing cycles',
+            icon: Icons.power_off,
+          ),
+          _Issue(
+            id: 'other-alarm',
+            title: 'Other / Alarm on Controller',
+            description: 'Other issue or alarm displayed on controller',
+            icon: Icons.warning,
           ),
         ];
       default:
