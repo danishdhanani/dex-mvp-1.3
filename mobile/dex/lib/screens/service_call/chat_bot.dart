@@ -75,7 +75,6 @@ class _ChatBotState extends State<ChatBot> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-  bool _showUnitSelector = false;
   UnitInfo? _selectedUnit;
 
   @override
@@ -483,9 +482,7 @@ class _ChatBotState extends State<ChatBot> {
                 const Spacer(),
                 TextButton(
                   onPressed: () {
-                    setState(() {
-                      _showUnitSelector = true;
-                    });
+                    _showUnitSelectorModal();
                   },
                   style: TextButton.styleFrom(
                     backgroundColor: _selectedUnit == null
@@ -515,10 +512,6 @@ class _ChatBotState extends State<ChatBot> {
                     },
                   ),
           ),
-
-          // Unit Selector Modal
-          if (_showUnitSelector)
-            _buildUnitSelectorModal(),
 
           // Input Area
           Container(
@@ -719,25 +712,26 @@ class _ChatBotState extends State<ChatBot> {
     );
   }
 
-  Widget _buildUnitSelectorModal() {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16),
-      child: _UnitSelectorModalContent(
-        selectedUnit: _selectedUnit,
-        unitType: widget.unitType,
-        onClose: () {
-          setState(() {
-            _showUnitSelector = false;
-          });
-        },
-        onSave: (unitInfo) {
-          setState(() {
-            _selectedUnit = unitInfo;
-            _showUnitSelector = false;
-          });
-        },
-        getEquipmentTypeName: _getEquipmentTypeName,
+  void _showUnitSelectorModal() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: _UnitSelectorModalContent(
+          selectedUnit: _selectedUnit,
+          unitType: widget.unitType,
+          onClose: () {
+            Navigator.of(context).pop();
+          },
+          onSave: (unitInfo) {
+            setState(() {
+              _selectedUnit = unitInfo;
+            });
+            Navigator.of(context).pop();
+          },
+          getEquipmentTypeName: _getEquipmentTypeName,
+        ),
       ),
     );
   }
