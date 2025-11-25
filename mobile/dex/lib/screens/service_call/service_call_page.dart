@@ -59,26 +59,26 @@ class _ServiceCallPageState extends State<ServiceCallPage> {
                   const SizedBox(width: 8),
                   // Logo
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 24,
+                    height: 24,
                     decoration: BoxDecoration(
                       color: const Color(0xFF374151), // gray-600
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
                       Icons.settings,
                       color: Colors.white,
-                      size: 20,
+                      size: 16,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _selectedUnitType != null
                           ? 'Dex - HVAC/R Troubleshooter'
                           : 'Dex Service Copilot',
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
@@ -86,12 +86,19 @@ class _ServiceCallPageState extends State<ServiceCallPage> {
                   ),
                   if (_selectedUnitType != null)
                     Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: 4),
                       child: TextButton(
                         onPressed: _handleBackToUnitSelection,
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFF374151), // gray-600
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                         child: const Text(
-                          'Home Page',
-                          style: TextStyle(color: Colors.white),
+                          'Home',
+                          style: TextStyle(fontSize: 12),
                         ),
                       ),
                     ),
@@ -103,15 +110,23 @@ class _ServiceCallPageState extends State<ServiceCallPage> {
                     style: TextButton.styleFrom(
                       backgroundColor: const Color(0xFF2563EB), // blue-600
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text('New Troubleshooting'),
+                    child: const Text(
+                      'Troubleshoot',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   IconButton(
-                    icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
+                    icon: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 20),
                     onPressed: () {
                       // Navigate to admin page
                     },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),

@@ -51,7 +51,7 @@ class UnitTypeSelector extends StatelessWidget {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: const BoxDecoration(
               color: Color(0xFF1F2937), // gray-800
               border: Border(
@@ -66,18 +66,20 @@ class UnitTypeSelector extends StatelessWidget {
                 Text(
                   'Dex Service Copilot',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 4),
                 Text(
                   'AI-powered HVAC/R troubleshooting assistant',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     color: Color(0xFF9CA3AF), // gray-400
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -87,40 +89,42 @@ class UnitTypeSelector extends StatelessWidget {
           Expanded(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                 child: Column(
                   children: [
                     const Text(
                       'What type of unit are you working on?',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Select the equipment type to get started with troubleshooting',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 14,
                         color: Color(0xFF9CA3AF), // gray-400
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
 
                     // Unit Type Grid
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final isTablet = constraints.maxWidth > 600;
+                        final isDesktop = constraints.maxWidth > 1024;
                         return GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: isTablet ? 3 : 1,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: isTablet ? 0.9 : 2.5,
+                            crossAxisCount: isDesktop ? 3 : (isTablet ? 2 : 1),
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: isDesktop ? 0.85 : (isTablet ? 1.1 : 2.2),
                           ),
                           itemCount: unitTypes.length,
                           itemBuilder: (context, index) {
@@ -128,13 +132,14 @@ class UnitTypeSelector extends StatelessWidget {
                             return _UnitTypeCard(
                               unitType: unitType,
                               onTap: () => onUnitTypeSelect(unitType.id),
+                              isMobile: !isTablet,
                             );
                           },
                         );
                       },
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
                     const Text(
                       'Supporting all major HVAC/R equipment types. Upload your service manuals to get started.',
                       style: TextStyle(
@@ -173,10 +178,12 @@ class _UnitTypeData {
 class _UnitTypeCard extends StatelessWidget {
   final _UnitTypeData unitType;
   final VoidCallback onTap;
+  final bool isMobile;
 
   const _UnitTypeCard({
     required this.unitType,
     required this.onTap,
+    required this.isMobile,
   });
 
   @override
@@ -188,72 +195,122 @@ class _UnitTypeCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xFF374151), // gray-700
+              color: const Color(0xFF4B5563), // gray-600
               width: 2,
             ),
           ),
-          child: Row(
+          child: Stack(
             children: [
-              // Icon
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB), // blue-600
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Icon(
-                  unitType.icon,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Text Content
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      unitType.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+              // Available badge - positioned in top right
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB), // blue-600
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Available',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      unitType.description,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF9CA3AF), // gray-400
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Available badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB), // blue-600
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'Available',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
+              // Content
+              isMobile
+                  ? Row(
+                      children: [
+                        // Icon
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB), // blue-600
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            unitType.icon,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Text Content
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                unitType.name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                unitType.description,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF9CA3AF), // gray-400
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Icon
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB), // blue-600
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Icon(
+                            unitType.icon,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Text Content
+                        Text(
+                          unitType.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          unitType.description,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF9CA3AF), // gray-400
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
             ],
           ),
         ),
