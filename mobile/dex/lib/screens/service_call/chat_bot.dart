@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../models/checklist_types.dart';
 
 class ChatBot extends StatefulWidget {
@@ -237,33 +239,137 @@ class _ChatBotState extends State<ChatBot> {
     }
   }
 
-  void _sendMessage(String messageText) {
+  Future<void> _sendMessage(String messageText) async {
     if (messageText.trim().isEmpty || _isLoading) return;
 
+    final userMessage = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: messageText.trim(),
+      isUser: true,
+      timestamp: DateTime.now(),
+    );
+
     setState(() {
-      _messages.add(ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        text: messageText.trim(),
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(userMessage);
       _isLoading = true;
     });
 
     _inputController.clear();
 
-    // Simulate API response
-    Future.delayed(const Duration(seconds: 1), () {
+    // Create bot message placeholder
+    final botMessageId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
+    final botMessage = ChatMessage(
+      id: botMessageId,
+      text: '',
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+
+    setState(() {
+      _messages.add(botMessage);
+    });
+
+    try {
+      // Build conversation history (last 4 messages)
+      final conversationHistory = _messages
+          .where((msg) => msg.id != botMessageId)
+          .take(4)
+          .map((msg) => <String, String>{
+            'role': msg.isUser ? 'user' : 'assistant',
+            'content': msg.text,
+          })
+          .toList();
+
+      // Prepare unit info
+      final unitInfo = _selectedUnit != null &&
+              _selectedUnit!.brand.isNotEmpty &&
+              _selectedUnit!.model.isNotEmpty
+          ? {
+              'brand': _selectedUnit!.brand,
+              'model': _selectedUnit!.model,
+              'unitType': _selectedUnit!.unitType,
+              if (_selectedUnit!.series != null) 'series': _selectedUnit!.series,
+              if (_selectedUnit!.yearRange != null)
+                'yearRange': _selectedUnit!.yearRange,
+            }
+          : null;
+
+      // Get base URL - use localhost for development, or configure for production
+      const baseUrl = String.fromEnvironment('API_BASE_URL',
+          defaultValue: 'http://localhost:3000');
+      final url = Uri.parse('$baseUrl/api/chat/stream');
+
+      // Make API call
+      final request = http.Request('POST', url);
+      request.headers['Content-Type'] = 'application/json';
+      request.body = jsonEncode({
+        'message': messageText.trim(),
+        if (unitInfo != null) 'unitInfo': unitInfo,
+        'conversationHistory': conversationHistory,
+      });
+
+      final streamedResponse = await request.send();
+
+      if (streamedResponse.statusCode != 200) {
+        throw Exception('Failed to get response: ${streamedResponse.statusCode}');
+      }
+
+      // Read stream and update message
+      String fullResponse = '';
+      await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
+        fullResponse += chunk;
+
+        // Update the bot message with current response
+        setState(() {
+          final index = _messages.indexWhere((msg) => msg.id == botMessageId);
+          if (index != -1) {
+            // Remove source content markers for display
+            final displayText = fullResponse
+                .replaceAll(RegExp(r'---SOURCE_CONTENT_START---[\s\S]*?---SOURCE_CONTENT_END---'), '')
+                .trim();
+            _messages[index] = ChatMessage(
+              id: botMessageId,
+              text: displayText,
+              isUser: false,
+              timestamp: DateTime.now(),
+            );
+          }
+        });
+      }
+
+      // Final update to ensure complete message
       setState(() {
-        _messages.add(ChatMessage(
-          id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
-          text: 'This is a placeholder response. In a full implementation, this would call your chat API.',
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        final index = _messages.indexWhere((msg) => msg.id == botMessageId);
+        if (index != -1) {
+          final displayText = fullResponse
+              .replaceAll(RegExp(r'---SOURCE_CONTENT_START---[\s\S]*?---SOURCE_CONTENT_END---'), '')
+              .trim();
+          _messages[index] = ChatMessage(
+            id: botMessageId,
+            text: displayText.isEmpty
+                ? 'Sorry, I couldn\'t generate a response. Please try again.'
+                : displayText,
+            isUser: false,
+            timestamp: DateTime.now(),
+          );
+        }
         _isLoading = false;
       });
-    });
+    } catch (error) {
+      print('Chat API error: $error');
+      setState(() {
+        final index = _messages.indexWhere((msg) => msg.id == botMessageId);
+        if (index != -1) {
+          _messages[index] = ChatMessage(
+            id: botMessageId,
+            text: 'Sorry, I encountered an error while processing your request. Please try again.',
+            isUser: false,
+            timestamp: DateTime.now(),
+          );
+        }
+        _isLoading = false;
+      });
+    }
   }
 
   @override

@@ -73,11 +73,9 @@ class _ServiceCallPageState extends State<ServiceCallPage> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      _selectedUnitType != null
-                          ? 'Dex - HVAC/R Troubleshooter'
-                          : 'Dex Service Copilot',
-                      style: const TextStyle(
+                    child: const Text(
+                      'Dex',
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
