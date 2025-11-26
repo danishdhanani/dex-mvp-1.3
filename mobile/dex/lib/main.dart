@@ -9,6 +9,7 @@ import 'screens/service_call/unit_selection_page.dart';
 import 'screens/service_call/service_call_page.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/pm/pm_summary_page.dart';
+import 'screens/pm/pm_checklist_page.dart';
 import 'navigation/app_router.dart';
 
 Future<void> main() async {
@@ -110,6 +111,12 @@ class DexApp extends StatelessWidget {
         if (settings.name == AppRouter.pmSummary) {
           return MaterialPageRoute(
             builder: (context) => const PMSummaryPage(),
+          );
+        }
+        if (settings.name == AppRouter.pmChecklist) {
+          final unitId = settings.arguments as String? ?? '';
+          return MaterialPageRoute(
+            builder: (context) => PMChecklistPage(unitId: unitId),
           );
         }
         if (settings.name == AppRouter.troubleshooting) {

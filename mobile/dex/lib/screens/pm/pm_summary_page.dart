@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'dart:convert';
+import '../../navigation/app_router.dart';
 
 class PMSummaryPage extends StatefulWidget {
   const PMSummaryPage({super.key});
@@ -382,8 +383,11 @@ class _PMSummaryPageState extends State<PMSummaryPage> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // TODO: Navigate to unit detail page
-            // Navigator.pushNamed(context, AppRouter.pmUnitDetail, arguments: unit.id);
+            Navigator.pushNamed(
+              context,
+              AppRouter.pmChecklist,
+              arguments: unit.id,
+            );
           },
           borderRadius: BorderRadius.circular(8),
           child: Padding(
