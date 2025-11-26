@@ -60,8 +60,18 @@ class DexApp extends StatelessWidget {
         builder: (context, authProvider, _) {
           // Show auth screen if not authenticated (including during loading to prevent flash)
           Widget home = const JobTypePage();
-          if (!authProvider.isAuthenticated) {
+          if (!authProvider.isAuthenticated && !authProvider.loading) {
             home = const AuthScreen();
+          } else if (authProvider.loading && !authProvider.isAuthenticated) {
+            // Show loading screen while checking auth state
+            home = const Scaffold(
+              backgroundColor: Color(0xFF111827),
+              body: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                ),
+              ),
+            );
           }
           
           return MaterialApp(

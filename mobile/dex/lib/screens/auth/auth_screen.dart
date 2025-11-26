@@ -111,7 +111,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
       if (success && mounted) {
         // Navigation will be handled by the app based on auth state
-        Navigator.of(context).pop();
+        // Only pop if we're not the home route
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
       }
     }
   }

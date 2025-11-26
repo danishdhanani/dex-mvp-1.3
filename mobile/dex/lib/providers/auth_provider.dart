@@ -150,7 +150,12 @@ class AuthProvider with ChangeNotifier {
       if (response.user != null && response.session != null) {
         // Only update user state if we have a valid session
         _user = response.user;
-        _userData = await SupabaseService.getUserData(response.user!.id);
+        try {
+          _userData = await SupabaseService.getUserData(response.user!.id);
+        } catch (e) {
+          // If user data fetch fails, that's okay - user might not have a record yet
+          _userData = null;
+        }
         
         _loading = false;
         notifyListeners();
