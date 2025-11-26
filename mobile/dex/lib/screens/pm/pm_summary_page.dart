@@ -159,8 +159,11 @@ class _PMSummaryPageState extends State<PMSummaryPage> {
       _units.removeWhere((u) => u.id == id);
     });
     
-    // Save to SharedPreferences
+    // Clear the checklist data for this unit from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('pm-checklist-$id');
+    
+    // Save updated units list to SharedPreferences
     final unitsJson = jsonEncode(_units.map((u) => u.toJson()).toList());
     await prefs.setString('pm-units-$_jobNumber', unitsJson);
   }
