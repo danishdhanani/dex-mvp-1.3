@@ -125,28 +125,58 @@ class _AuthScreenState extends State<AuthScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF111827), // gray-900
-      appBar: AppBar(
-        title: const Text('Authentication'),
-        backgroundColor: const Color(0xFF1F2937), // gray-800
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _isSignUp ? 'Sign Up' : 'Sign In',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 400,
+                  minHeight: constraints.maxHeight - 48, // Account for padding
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
+                child: Center(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                // Dex Branding Header
+                const Column(
+                  children: [
+                    // Logo icon
+                    CircleAvatar(
+                      radius: 32,
+                      backgroundColor: Color(0xFF2563EB), // blue-600
+                      child: Icon(
+                        Icons.settings,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Dex Service Copilot',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'AI-powered HVAC/R troubleshooting',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF9CA3AF), // gray-400
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 40),
 
               if (_isSignUp) ...[
                 // Name field
@@ -468,8 +498,13 @@ class _AuthScreenState extends State<AuthScreen> {
                   style: const TextStyle(color: Color(0xFF60A5FA)),
                 ),
               ),
-            ],
-          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
