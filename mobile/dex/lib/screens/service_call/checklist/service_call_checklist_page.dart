@@ -4,6 +4,7 @@ import '../../../models/checklist_types.dart';
 import '../../../logic/decision_tree_rules.dart';
 import '../../../models/diagnostic_context.dart';
 import '../../../components/hypothesis_popup.dart';
+import '../../../services/service_call_service.dart';
 
 class ServiceCallChecklistPage extends StatefulWidget {
   final String unitType;
@@ -32,6 +33,8 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
     'boxTemp': '',
     'setpoint': '',
   };
+  String _wrapUpNotes = '';
+  String _customIssueDescription = '';
 
   @override
   void initState() {
@@ -1771,8 +1774,41 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement save & return functionality
+                onPressed: () async {
+                  if (_checklist == null) return;
+                  try {
+                    await ServiceCallService.saveServiceCallChecklist(
+                      unitType: widget.unitType,
+                      issueId: widget.issueId,
+                      checklist: _checklist!,
+                      readings: _readings,
+                      wrapUpNotes: _wrapUpNotes,
+                      chosenWrapUp: _chosenWrapUp,
+                      blockingMessageResolutions: _blockingMessageResolutions,
+                      customIssueDescription: _customIssueDescription,
+                      hypotheses: _hypotheses
+                          .map((h) => {
+                                'id': h.id,
+                                'label': h.label,
+                                'reason': h.reason,
+                                'confidence': h.confidence,
+                                'nextSectionId': h.nextSectionId,
+                              })
+                          .toList(),
+                      chosenPathTitles: _chosenPathTitles,
+                      currentSection: _currentSection,
+                    );
+                    if (!mounted) return;
+                    Navigator.of(context).pop();
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error saving service call: $e'),
+                        backgroundColor: const Color(0xFFDC2626),
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB), // blue-600
