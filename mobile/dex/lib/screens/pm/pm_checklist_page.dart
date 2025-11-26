@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
 import '../../config/pm_checklist_config.dart';
+import '../../services/pm_service.dart';
 
 class PMChecklistPage extends StatefulWidget {
   final String unitId;
@@ -90,7 +91,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
     }
   }
 
-  Future<void> _saveChecklist() async {
+  Future<void> _saveChecklistLocal() async {
     if (_checklist == null) return;
     
     final prefs = await SharedPreferences.getInstance();
@@ -100,6 +101,30 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
     };
     
     await prefs.setString('pm-checklist-${widget.unitId}', jsonEncode(dataToSave));
+  }
+
+  Future<void> _saveChecklist() async {
+    // First save locally
+    await _saveChecklistLocal();
+
+    // Also save to Supabase so PM jobs are persisted like in the Next.js app.
+    try {
+      await PMService.savePMChecklist(
+        unitId: widget.unitId,
+        checklist: _checklist!,
+        readings: Map<String, String>.from(_readings),
+        currentSection: _currentSection,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Error saving to cloud: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
   }
 
   void _toggleItem(String sectionId, String itemId) {
@@ -143,7 +168,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
       );
     });
     
-    _saveChecklist();
+    _saveChecklistLocal();
   }
 
   void _updateNotes(String sectionId, String itemId, String notes) {
@@ -180,7 +205,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
       );
     });
     
-    _saveChecklist();
+    _saveChecklistLocal();
   }
 
   Future<void> _handleImageUpload(String sectionId, String itemId) async {
@@ -248,7 +273,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
         );
       });
       
-      _saveChecklist();
+      _saveChecklistLocal();
     } catch (e) {
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
@@ -817,7 +842,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
                 setState(() {
                   _readings['gasPressure'] = value;
                 });
-                _saveChecklist();
+                _saveChecklistLocal();
               },
               decoration: InputDecoration(
                 hintText: 'Enter reading',
@@ -864,7 +889,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
                 setState(() {
                   _readings['tempRise'] = value;
                 });
-                _saveChecklist();
+                _saveChecklistLocal();
               },
               decoration: InputDecoration(
                 hintText: 'Enter reading',
@@ -911,7 +936,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
                 setState(() {
                   _readings['blowerAmps'] = value;
                 });
-                _saveChecklist();
+                _saveChecklistLocal();
               },
               decoration: InputDecoration(
                 hintText: 'Enter reading',
@@ -958,7 +983,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
                 setState(() {
                   _readings['additionalRepairs'] = value;
                 });
-                _saveChecklist();
+                _saveChecklistLocal();
               },
               decoration: InputDecoration(
                 hintText: 'Enter any additional repairs or notes...',

@@ -209,7 +209,7 @@ export async function savePMChecklist(
   // Check if a checklist already exists for this user/unit combination
   // Query by checking details JSONB for unitId
   const { data: existing } = await supabase
-    .from('preventive_maintenance')
+    .from('preventative_maintenance')
     .select('id')
     .eq('user_id', user.id)
     .eq('details->>unitId', unitId)
@@ -246,8 +246,8 @@ export async function savePMChecklist(
     return updated;
   } else {
     // Insert new record
-    const { data: inserted, error } = await supabase
-      .from('preventive_maintenance')
+  const { data: inserted, error } = await supabase
+    .from('preventative_maintenance')
       .insert(record)
       .select('id')
       .single();
@@ -276,7 +276,7 @@ export async function loadPMChecklist(
   }
 
   const { data, error } = await supabase
-    .from('preventive_maintenance')
+    .from('preventative_maintenance')
     .select('details')
     .eq('user_id', user.id)
     .eq('details->>unitId', unitId)

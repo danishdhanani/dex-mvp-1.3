@@ -111,7 +111,7 @@ export default function TechnicianServiceCallsPage() {
 
       // Fetch preventive maintenance jobs for this technician
       const { data: pmJobs, error: pmError } = await supabase
-        .from('preventive_maintenance')
+        .from('preventative_maintenance')
         .select('id, created_at, details')
         .eq('user_id', technicianId)
         .order('created_at', { ascending: false });
