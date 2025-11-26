@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'dart:io';
 import '../../../config/checklist_config.dart';
 import '../../../models/checklist_types.dart';
 import '../../../logic/decision_tree_rules.dart';
@@ -134,6 +137,105 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   void _updateNotes(String sectionId, String itemId, String notes) {
     _updateItem(sectionId, itemId, (item) {
       return item.copyWith(notes: notes);
+    });
+  }
+
+  Future<void> _handleImageUpload(String sectionId, String itemId) async {
+    if (_checklist == null) return;
+
+    // Show dialog to choose camera or gallery
+    final ImageSource? source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1F2937), // gray-800
+        title: const Text(
+          'Select Image Source',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Color(0xFF60A5FA)),
+              title: const Text(
+                'Camera',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Color(0xFF60A5FA)),
+              title: const Text(
+                'Gallery',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      // Check file size (max 5MB)
+      final file = File(image.path);
+      final fileSize = await file.length();
+      if (fileSize > 5 * 1024 * 1024) {
+        if (!mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Image size must be less than 5MB'),
+            backgroundColor: Color(0xFFDC2626),
+          ),
+        );
+        return;
+      }
+
+      // Read file as base64
+      final bytes = await file.readAsBytes();
+      final base64String = base64Encode(bytes);
+      final dataUri =
+          'data:image/${image.path.split('.').last};base64,$base64String';
+
+      _updateItem(sectionId, itemId, (item) {
+        final currentImages = item.images ?? [];
+        return item.copyWith(images: [...currentImages, dataUri]);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Error uploading image: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
+  }
+
+  void _removeImage(String sectionId, String itemId, int imageIndex) {
+    _updateItem(sectionId, itemId, (item) {
+      final currentImages = item.images ?? [];
+      final updatedImages = currentImages
+          .asMap()
+          .entries
+          .where((entry) => entry.key != imageIndex)
+          .map((entry) => entry.value)
+          .toList();
+      return item.copyWith(images: updatedImages);
     });
   }
 
@@ -1385,7 +1487,7 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
                           const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: () {
-                              // TODO: Implement image picker
+                              _handleImageUpload(sectionId, item.id);
                             },
                             icon: const Icon(Icons.add_photo_alternate, size: 16),
                             label: const Text(
@@ -1416,12 +1518,30 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
-                                  child: Image.network(
-                                    image,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                  ),
+                                  child: image.startsWith('data:image')
+                                      ? Image.memory(
+                                          base64Decode(image.split(',')[1]),
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.network(
+                                          image,
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              width: 80,
+                                              height: 80,
+                                              color: const Color(0xFF374151),
+                                              child: const Icon(
+                                                Icons.broken_image,
+                                                color: Color(0xFF9CA3AF),
+                                              ),
+                                            );
+                                          },
+                                        ),
                                 ),
                                 Positioned(
                                   top: -4,
@@ -1430,7 +1550,7 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
                                     icon: const Icon(Icons.close, size: 16),
                                     color: Colors.red,
                                     onPressed: () {
-                                      // TODO: Implement image removal
+                                      _removeImage(sectionId, item.id, index);
                                     },
                                   ),
                                 ),
