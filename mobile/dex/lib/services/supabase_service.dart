@@ -106,12 +106,20 @@ class SupabaseService {
     String? orgId,
   }) async {
     _ensureInitialized();
-    await client.from('users').insert({
+
+    // Build insert payload and only include org_id when it's actually set.
+    final Map<String, dynamic> payload = {
       'id': userId,
       'role': role,
       'name': name,
-      'org_id': orgId,
-    });
+    };
+
+    // Treat empty string as "no org" as well, to mirror the Next.js behavior (orgId || null).
+    if (orgId != null && orgId.isNotEmpty) {
+      payload['org_id'] = orgId;
+    }
+
+    await client.from('users').insert(payload);
   }
 }
 

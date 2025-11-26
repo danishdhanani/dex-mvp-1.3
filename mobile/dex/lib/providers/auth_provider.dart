@@ -91,18 +91,40 @@ class AuthProvider with ChangeNotifier {
         password: password,
       );
 
-      if (response.user != null) {
-        // Create user record in users table
-        await SupabaseService.createUserRecord(
-          userId: response.user!.id,
-          name: name,
-          role: role,
-          orgId: orgId,
-        );
+      // With PKCE / mobile flows, Supabase may not always return the user directly.
+      // Try multiple ways to get the newly created user so we can mirror the Next.js behavior.
+      User? newUser = response.user;
 
-        // Fetch user data
-        _user = response.user;
-        _userData = await SupabaseService.getUserData(response.user!.id);
+      // Fallback 1: use the current auth user if signUp didn't return one
+      newUser ??= SupabaseService.currentUser;
+
+      // Fallback 2: explicitly call getUser()
+      newUser ??= await SupabaseService.getUser();
+
+      if (newUser != null) {
+        // Try to create user record in users table.
+        // If this fails (e.g. RLS), log it but don't block signup – same behavior as the Next.js app.
+        try {
+          await SupabaseService.createUserRecord(
+            userId: newUser.id,
+            name: name,
+            role: role,
+            orgId: orgId,
+          );
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error creating user record: $e');
+          }
+          // Continue anyway – auth user exists, record can be created later/admin-side.
+        }
+
+        // Fetch user data (may still be null if insert failed or record doesn't exist yet)
+        _user = newUser;
+        try {
+          _userData = await SupabaseService.getUserData(newUser.id);
+        } catch (_) {
+          _userData = null;
+        }
         
         _loading = false;
         notifyListeners();
