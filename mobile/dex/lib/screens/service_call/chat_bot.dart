@@ -77,6 +77,7 @@ class _ChatBotState extends State<ChatBot> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   UnitInfo? _selectedUnit;
+  Map<String, dynamic>? _manualAvailability; // { hasManual: bool, message: string }
 
   @override
   void dispose() {
@@ -454,47 +455,103 @@ class _ChatBotState extends State<ChatBot> {
           // Unit Selection Header
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1F2937), // gray-800
+            decoration: BoxDecoration(
+              color: _selectedUnit == null
+                  ? const Color(0xFF7F1D1D).withValues(alpha: 0.2) // red-900 with opacity
+                  : const Color(0xFF1F2937), // gray-800
               border: Border(
                 bottom: BorderSide(
-                  color: Color(0xFF374151), // gray-700
+                  color: _selectedUnit == null
+                      ? const Color(0xFFDC2626).withValues(alpha: 0.3) // red-600 with opacity
+                      : const Color(0xFF374151), // gray-700
                   width: 1,
                 ),
               ),
             ),
-            child: Row(
+            child: Column(
               children: [
-                const Icon(
-                  Icons.info_outline,
-                  color: Color(0xFF60A5FA), // blue-400
-                  size: 20,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: _selectedUnit == null
+                          ? const Color(0xFFFCA5A5) // red-400
+                          : const Color(0xFF60A5FA), // blue-400
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Unit Information',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: _selectedUnit == null
+                            ? const Color(0xFFFCA5A5) // red-200
+                            : Colors.white,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () {
+                        _showUnitSelectorModal();
+                      },
+                      style: TextButton.styleFrom(
+                        backgroundColor: _selectedUnit == null
+                            ? const Color(0xFF374151) // gray-600
+                            : const Color(0xFF2563EB), // blue-600
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text(
+                        _selectedUnit == null ? 'Select Unit' : 'Change Unit',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Unit Information',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                // Manual availability status
+                if (_manualAvailability != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _manualAvailability!['hasManual'] == true
+                          ? const Color(0xFF065F46).withValues(alpha: 0.2) // green-900 with opacity
+                          : const Color(0xFF78350F).withValues(alpha: 0.2), // yellow-900 with opacity
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _manualAvailability!['hasManual'] == true
+                            ? const Color(0xFF10B981).withValues(alpha: 0.3) // green-600
+                            : const Color(0xFFF59E0B).withValues(alpha: 0.3), // yellow-600
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _manualAvailability!['hasManual'] == true
+                              ? Icons.check_circle
+                              : Icons.info_outline,
+                          color: _manualAvailability!['hasManual'] == true
+                              ? const Color(0xFF10B981) // green-600
+                              : const Color(0xFFF59E0B), // yellow-600
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _manualAvailability!['message'] as String,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _manualAvailability!['hasManual'] == true
+                                  ? const Color(0xFF6EE7B7) // green-300
+                                  : const Color(0xFFFCD34D), // yellow-300
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    _showUnitSelectorModal();
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: _selectedUnit == null
-                        ? const Color(0xFF374151) // gray-600
-                        : const Color(0xFF2563EB), // blue-600
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text(
-                    _selectedUnit == null ? 'Select Unit' : 'Change Unit',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
+                ],
               ],
             ),
           ),
@@ -712,6 +769,74 @@ class _ChatBotState extends State<ChatBot> {
     );
   }
 
+  Future<void> _checkManualAvailability(UnitInfo unitInfo) async {
+    try {
+      // Get base URL from .env file
+      final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
+      final url = Uri.parse('$baseUrl/api/admin/manuals');
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final manuals = data['manuals'] as List<dynamic>? ?? [];
+
+        // Look for manuals that match the unit info
+        final matchingManuals = manuals.where((manual) {
+          final unitInfoData = manual['unitInfo'] as Map<String, dynamic>?;
+          if (unitInfoData == null) return false;
+
+          final brandMatch = (unitInfoData['brand'] as String? ?? '')
+                  .toLowerCase() ==
+              unitInfo.brand.toLowerCase();
+          final modelMatch = (unitInfoData['model'] as String? ?? '')
+                  .toLowerCase() ==
+              unitInfo.model.toLowerCase();
+          final typeMatch = (unitInfoData['unitType'] as String? ?? '')
+                  .toLowerCase() ==
+              unitInfo.unitType.toLowerCase();
+
+          return brandMatch && modelMatch && typeMatch;
+        }).toList();
+
+        setState(() {
+          if (matchingManuals.isNotEmpty) {
+            _manualAvailability = {
+              'hasManual': true,
+              'message':
+                  'Manual found, chat will now provide unit-specific information'
+            };
+          } else {
+            _manualAvailability = {
+              'hasManual': false,
+              'message':
+                  'This manual is not yet in our library, we will get it added soon. In the meantime you will see general results for ${_getEquipmentTypeName(unitInfo.unitType).toLowerCase()}.'
+            };
+          }
+        });
+      } else {
+        // Fallback if API fails
+        setState(() {
+          _manualAvailability = {
+            'hasManual': false,
+            'message':
+                'This manual is not yet in our library, we will get it added soon. In the meantime you will see general results for ${_getEquipmentTypeName(unitInfo.unitType).toLowerCase()}.'
+          };
+        });
+      }
+    } catch (error) {
+      print('Error checking manual availability: $error');
+      // Fallback on error
+      setState(() {
+        _manualAvailability = {
+          'hasManual': false,
+          'message':
+              'This manual is not yet in our library, we will get it added soon. In the meantime you will see general results for ${_getEquipmentTypeName(unitInfo.unitType).toLowerCase()}.'
+        };
+      });
+    }
+  }
+
   void _showUnitSelectorModal() {
     showDialog(
       context: context,
@@ -724,11 +849,14 @@ class _ChatBotState extends State<ChatBot> {
           onClose: () {
             Navigator.of(context).pop();
           },
-          onSave: (unitInfo) {
+          onSave: (unitInfo) async {
             setState(() {
               _selectedUnit = unitInfo;
+              _manualAvailability = null; // Clear previous availability when changing unit
             });
             Navigator.of(context).pop();
+            // Check manual availability after saving
+            await _checkManualAvailability(unitInfo);
           },
           getEquipmentTypeName: _getEquipmentTypeName,
         ),
