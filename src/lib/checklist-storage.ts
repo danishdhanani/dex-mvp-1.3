@@ -232,7 +232,7 @@ export async function savePMChecklist(
   if (existing) {
     // Update existing record
     const { data: updated, error } = await supabase
-      .from('preventive_maintenance')
+      .from('preventative_maintenance')
       .update(record)
       .eq('id', existing.id)
       .select('id')
