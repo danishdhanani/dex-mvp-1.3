@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+import 'dart:io';
 import '../../config/pm_checklist_config.dart';
 
 class PMChecklistPage extends StatefulWidget {
@@ -133,6 +135,12 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
         }
         return section;
       }).toList();
+      
+      _checklist = PMChecklist(
+        unitType: _checklist!.unitType,
+        unitName: _checklist!.unitName,
+        sections: updatedSections,
+      );
     });
     
     _saveChecklist();
@@ -156,6 +164,121 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
                   status: item.status,
                   notes: notes,
                   images: item.images,
+                );
+              }
+              return item;
+            }).toList(),
+          );
+        }
+        return section;
+      }).toList();
+      
+      _checklist = PMChecklist(
+        unitType: _checklist!.unitType,
+        unitName: _checklist!.unitName,
+        sections: updatedSections,
+      );
+    });
+    
+    _saveChecklist();
+  }
+
+  Future<void> _handleImageUpload(String sectionId, String itemId) async {
+    if (_checklist == null) return;
+    
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+      
+      if (image == null) return;
+      
+      // Check file size (max 5MB)
+      final file = File(image.path);
+      final fileSize = await file.length();
+      if (fileSize > 5 * 1024 * 1024) {
+        if (!mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Image size must be less than 5MB'),
+            backgroundColor: Color(0xFFDC2626),
+          ),
+        );
+        return;
+      }
+      
+      // Read file as base64
+      final bytes = await file.readAsBytes();
+      final base64String = base64Encode(bytes);
+      final dataUri = 'data:image/${image.path.split('.').last};base64,$base64String';
+      
+      setState(() {
+        final updatedSections = _checklist!.sections.map((section) {
+          if (section.id == sectionId) {
+            return PMChecklistSection(
+              id: section.id,
+              title: section.title,
+              items: section.items.map((item) {
+                if (item.id == itemId) {
+                  return PMChecklistItem(
+                    id: item.id,
+                    text: item.text,
+                    checked: item.checked,
+                    status: item.status,
+                    notes: item.notes,
+                    images: [...item.images, dataUri],
+                  );
+                }
+                return item;
+              }).toList(),
+            );
+          }
+          return section;
+        }).toList();
+        
+        _checklist = PMChecklist(
+          unitType: _checklist!.unitType,
+          unitName: _checklist!.unitName,
+          sections: updatedSections,
+        );
+      });
+      
+      _saveChecklist();
+    } catch (e) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Error uploading image: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
+  }
+
+  void _removeImage(String sectionId, String itemId, int imageIndex) {
+    if (_checklist == null) return;
+    
+    setState(() {
+      final updatedSections = _checklist!.sections.map((section) {
+        if (section.id == sectionId) {
+          return PMChecklistSection(
+            id: section.id,
+            title: section.title,
+            items: section.items.map((item) {
+              if (item.id == itemId) {
+                return PMChecklistItem(
+                  id: item.id,
+                  text: item.text,
+                  checked: item.checked,
+                  status: item.status,
+                  notes: item.notes,
+                  images: item.images.asMap().entries.where((entry) => entry.key != imageIndex).map((entry) => entry.value).toList(),
                 );
               }
               return item;
@@ -560,6 +683,104 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
                         style: const TextStyle(color: Colors.white, fontSize: 12),
                         maxLines: 2,
                       ),
+                      const SizedBox(height: 12),
+                      // Image Upload Section
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Attach Photos:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF9CA3AF), // gray-400
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: () => _handleImageUpload(section.id, item.id),
+                                style: TextButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB), // blue-600
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  '+ Add Photo',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                          // Display uploaded images
+                          if (item.images.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: item.images.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final imageData = entry.value;
+                                return Stack(
+                                  children: [
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFF4B5563), // gray-600
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: imageData.startsWith('data:image')
+                                            ? Image.memory(
+                                                base64Decode(imageData.split(',')[1]),
+                                                fit: BoxFit.cover,
+                                              )
+                                            : Image.network(
+                                                imageData,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return const Icon(
+                                                    Icons.broken_image,
+                                                    color: Color(0xFF9CA3AF),
+                                                  );
+                                                },
+                                              ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: -4,
+                                      right: -4,
+                                      child: GestureDetector(
+                                        onTap: () => _removeImage(section.id, item.id, index),
+                                        child: Container(
+                                          width: 20,
+                                          height: 20,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFFDC2626), // red-600
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.close,
+                                            size: 14,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ],
                 ),
@@ -797,6 +1018,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
         ElevatedButton(
           onPressed: () async {
             await _saveChecklist();
+            if (!mounted) return;
             Navigator.of(context).pop();
           },
           style: ElevatedButton.styleFrom(

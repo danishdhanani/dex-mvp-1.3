@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
 
 // Class definitions
@@ -365,9 +366,8 @@ class _ChatBotState extends State<ChatBot> {
             }
           : null;
 
-      // Get base URL - use localhost for development, or configure for production
-      const baseUrl = String.fromEnvironment('API_BASE_URL',
-          defaultValue: 'http://localhost:3000');
+      // Get base URL from .env file
+      final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
       final url = Uri.parse('$baseUrl/api/chat/stream');
 
       // Make API call
