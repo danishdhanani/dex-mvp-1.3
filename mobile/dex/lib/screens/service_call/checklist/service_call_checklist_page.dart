@@ -25,6 +25,7 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
   ServiceCallChecklist? _checklist;
   int _currentSection = 1;
   bool _hypothesesOpen = false;
+  bool _isSaving = false;
   List<Hypothesis> _hypotheses = [];
   List<String> _chosenPathTitles = [];
   bool _chosenWrapUp = false;
@@ -1774,55 +1775,142 @@ class _ServiceCallChecklistPageState extends State<ServiceCallChecklistPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () async {
-                  if (_checklist == null) return;
-                  try {
-                    await ServiceCallService.saveServiceCallChecklist(
-                      unitType: widget.unitType,
-                      issueId: widget.issueId,
-                      checklist: _checklist!,
-                      readings: _readings,
-                      wrapUpNotes: _wrapUpNotes,
-                      chosenWrapUp: _chosenWrapUp,
-                      blockingMessageResolutions: _blockingMessageResolutions,
-                      customIssueDescription: _customIssueDescription,
-                      hypotheses: _hypotheses
-                          .map((h) => {
-                                'id': h.id,
-                                'label': h.label,
-                                'reason': h.reason,
-                                'confidence': h.confidence,
-                                'nextSectionId': h.nextSectionId,
-                              })
-                          .toList(),
-                      chosenPathTitles: _chosenPathTitles,
-                      currentSection: _currentSection,
-                    );
-                    if (!mounted) return;
-                    Navigator.of(context).pop();
-                  } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error saving service call: $e'),
-                        backgroundColor: const Color(0xFFDC2626),
-                      ),
-                    );
-                  }
-                },
+                onPressed: _isSaving || _checklist == null
+                    ? null
+                    : () async {
+                        setState(() {
+                          _isSaving = true;
+                        });
+
+                        try {
+                          await ServiceCallService.saveServiceCallChecklist(
+                            unitType: widget.unitType,
+                            issueId: widget.issueId,
+                            checklist: _checklist!,
+                            readings: _readings,
+                            wrapUpNotes: _wrapUpNotes,
+                            chosenWrapUp: _chosenWrapUp,
+                            blockingMessageResolutions: _blockingMessageResolutions,
+                            customIssueDescription: _customIssueDescription,
+                            hypotheses: _hypotheses
+                                .map((h) => {
+                                      'id': h.id,
+                                      'label': h.label,
+                                      'reason': h.reason,
+                                      'confidence': h.confidence,
+                                      'nextSectionId': h.nextSectionId,
+                                    })
+                                .toList(),
+                            chosenPathTitles: _chosenPathTitles,
+                            currentSection: _currentSection,
+                          );
+                          
+                          if (!mounted) return;
+                          
+                          // Show success dialog
+                          await showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: const Color(0xFF1F2937), // gray-800
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: Color(0xFF374151)),
+                              ),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 64,
+                                    height: 64,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF10B981), // green-600
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 32,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'Saved Successfully!',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Your service call checklist has been saved.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Color(0xFF9CA3AF), // gray-400
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop(); // Close dialog
+                                    Navigator.of(context).pop(); // Return to previous screen
+                                  },
+                                  style: TextButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2563EB), // blue-600
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error saving service call: $e'),
+                              backgroundColor: const Color(0xFFDC2626),
+                            ),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setState(() {
+                              _isSaving = false;
+                            });
+                          }
+                        }
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB), // blue-600
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
+                  disabledBackgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.6),
                 ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.save, size: 16),
-                    SizedBox(width: 4),
-                    Text('Save & Return'),
-                  ],
-                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.save, size: 16),
+                          SizedBox(width: 4),
+                          Text('Save & Return'),
+                        ],
+                      ),
               ),
             ),
           ],

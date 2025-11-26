@@ -19,6 +19,7 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
   PMChecklist? _checklist;
   int _currentSection = 1;
   final ScrollController _sectionScrollController = ScrollController();
+  bool _isSaving = false;
   final Map<String, String> _readings = {
     'gasPressure': '',
     'tempRise': '',
@@ -104,16 +105,90 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
   }
 
   Future<void> _saveChecklist() async {
-    // First save locally
-    await _saveChecklistLocal();
+    if (_isSaving) return;
+    
+    setState(() {
+      _isSaving = true;
+    });
 
-    // Also save to Supabase so PM jobs are persisted like in the Next.js app.
     try {
+      // First save locally
+      await _saveChecklistLocal();
+
+      // Also save to Supabase so PM jobs are persisted like in the Next.js app.
       await PMService.savePMChecklist(
         unitId: widget.unitId,
         checklist: _checklist!,
         readings: Map<String, String>.from(_readings),
         currentSection: _currentSection,
+      );
+      
+      if (!mounted) return;
+      
+      // Show success dialog
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1F2937), // gray-800
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFF374151)),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF10B981), // green-600
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Saved Successfully!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Your PM checklist has been saved.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF9CA3AF), // gray-400
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Return to previous screen
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB), // blue-600
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -124,6 +199,12 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
           backgroundColor: const Color(0xFFDC2626),
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
@@ -1041,10 +1122,8 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
 
         // Save & Return Button
         ElevatedButton(
-          onPressed: () async {
+          onPressed: _isSaving ? null : () async {
             await _saveChecklist();
-            if (!mounted) return;
-            Navigator.of(context).pop();
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2563EB), // blue-600
@@ -1053,13 +1132,18 @@ class _PMChecklistPageState extends State<PMChecklistPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
+            disabledBackgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.6),
           ),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Save & Return'),
-            ],
-          ),
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Save & Return'),
         ),
 
         // Next Button
